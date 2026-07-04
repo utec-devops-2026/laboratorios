@@ -1,0 +1,1795 @@
+<title>Guía MLOps — Clasificador de Sentimiento IMDB en AWS SageMaker</title>
+<style>
+  :root {
+    --bg: #F6F8FB;
+    --bg-alt: #ECEEF3;
+    --surface: #FFFFFF;
+    --surface-raised: #F0F2F7;
+    --border: #D8DCE8;
+    --text: #1A2035;
+    --text-muted: #5A6380;
+    --accent: #2563EB;
+    --accent-soft: #DBEAFE;
+    --accent-dark: #1D4ED8;
+    --green: #16A34A;
+    --green-soft: #DCFCE7;
+    --amber: #D97706;
+    --amber-soft: #FEF3C7;
+    --red: #DC2626;
+    --red-soft: #FEE2E2;
+    --purple: #7C3AED;
+    --purple-soft: #EDE9FE;
+    --code-bg: #1C1F2E;
+    --code-text: #CDD6F4;
+    --code-comment: #6C7086;
+    --code-keyword: #89B4FA;
+    --code-string: #A6E3A1;
+    --code-number: #FAB387;
+    --code-fn: #89DCEB;
+    --radius: 8px;
+    --radius-sm: 4px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0D1117;
+      --bg-alt: #161B22;
+      --surface: #161B22;
+      --surface-raised: #1E2533;
+      --border: #2A3040;
+      --text: #E6EDF3;
+      --text-muted: #7D8590;
+      --accent: #4D9EFF;
+      --accent-soft: #102040;
+      --accent-dark: #79B8FF;
+      --green: #3FB950;
+      --green-soft: #0A2310;
+      --amber: #F0A830;
+      --amber-soft: #241800;
+      --red: #F85149;
+      --red-soft: #2A0A0A;
+      --purple: #BC8CFF;
+      --purple-soft: #1A0F30;
+      --code-bg: #0D1117;
+      --code-text: #E6EDF3;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F6F8FB; --bg-alt: #ECEEF3; --surface: #FFFFFF; --surface-raised: #F0F2F7;
+    --border: #D8DCE8; --text: #1A2035; --text-muted: #5A6380; --accent: #2563EB;
+    --accent-soft: #DBEAFE; --accent-dark: #1D4ED8; --green: #16A34A; --green-soft: #DCFCE7;
+    --amber: #D97706; --amber-soft: #FEF3C7; --red: #DC2626; --red-soft: #FEE2E2;
+    --purple: #7C3AED; --purple-soft: #EDE9FE; --code-bg: #1C1F2E; --code-text: #CDD6F4;
+  }
+  :root[data-theme="dark"] {
+    --bg: #0D1117; --bg-alt: #161B22; --surface: #161B22; --surface-raised: #1E2533;
+    --border: #2A3040; --text: #E6EDF3; --text-muted: #7D8590; --accent: #4D9EFF;
+    --accent-soft: #102040; --accent-dark: #79B8FF; --green: #3FB950; --green-soft: #0A2310;
+    --amber: #F0A830; --amber-soft: #241800; --red: #F85149; --red-soft: #2A0A0A;
+    --purple: #BC8CFF; --purple-soft: #1A0F30; --code-bg: #0D1117; --code-text: #E6EDF3;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  .layout { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+
+  /* SIDEBAR */
+  .sidebar {
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    background: var(--surface); border-right: 1px solid var(--border);
+    padding: 24px 0; flex-shrink: 0;
+  }
+  .sidebar-logo {
+    padding: 0 20px 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+  .sidebar-logo .badge {
+    display: inline-block; background: var(--accent); color: #fff;
+    font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 3px; margin-bottom: 6px;
+  }
+  .sidebar-logo h2 { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.3; }
+  .nav-section { padding: 0 12px 4px; margin-top: 12px; }
+  .nav-label {
+    font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--text-muted); padding: 0 8px; margin-bottom: 4px;
+  }
+  .nav-item {
+    display: block; padding: 5px 8px; border-radius: var(--radius-sm);
+    color: var(--text-muted); font-size: 13px; text-decoration: none;
+    cursor: pointer; transition: background .15s, color .15s;
+  }
+  .nav-item:hover { background: var(--accent-soft); color: var(--accent); }
+  .nav-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .nav-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
+
+  /* MAIN */
+  .main { padding: 48px 56px; max-width: 900px; }
+
+  /* HERO */
+  .hero { margin-bottom: 48px; padding-bottom: 32px; border-bottom: 1px solid var(--border); }
+  .hero-eyebrow {
+    font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 10px;
+  }
+  .hero h1 { font-size: 28px; font-weight: 700; line-height: 1.25; text-wrap: balance; color: var(--text); margin-bottom: 12px; }
+  .hero p { color: var(--text-muted); max-width: 600px; }
+  .hero-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500;
+    border: 1px solid var(--border); background: var(--surface-raised); color: var(--text-muted);
+  }
+  .chip svg { width: 12px; height: 12px; }
+
+  /* SECTION */
+  .section { margin-bottom: 56px; }
+  .section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .section-num {
+    width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: #fff;
+    font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .section-header h2 { font-size: 20px; font-weight: 700; }
+  .section-header .nb-path {
+    font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+    font-size: 11px; color: var(--text-muted); background: var(--surface-raised);
+    padding: 2px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+  }
+
+  /* CELL CARD */
+  .cell-list { display: flex; flex-direction: column; gap: 16px; }
+  .cell-card {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--surface); overflow: hidden;
+  }
+  .cell-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px; background: var(--surface-raised); border-bottom: 1px solid var(--border);
+  }
+  .cell-num {
+    font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+    font-size: 11px; color: var(--text-muted); flex-shrink: 0;
+  }
+  .cell-title { font-size: 13px; font-weight: 600; flex: 1; }
+  .tag {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; padding: 2px 7px; border-radius: 3px;
+  }
+  .tag-setup { background: var(--purple-soft); color: var(--purple); }
+  .tag-data  { background: var(--accent-soft); color: var(--accent); }
+  .tag-train { background: var(--green-soft); color: var(--green); }
+  .tag-deploy { background: var(--amber-soft); color: var(--amber); }
+  .tag-eval  { background: var(--red-soft); color: var(--red); }
+
+  .cell-body { padding: 14px 16px; }
+  .cell-desc { font-size: 13.5px; color: var(--text); margin-bottom: 10px; }
+  .cell-analogy {
+    display: flex; align-items: flex-start; gap: 8px;
+    background: var(--surface-raised); border-radius: var(--radius-sm);
+    padding: 10px 12px; border-left: 3px solid var(--accent); margin-bottom: 10px;
+  }
+  .cell-analogy-label { font-size: 11px; font-weight: 700; color: var(--accent); flex-shrink: 0; margin-top: 1px; }
+  .cell-analogy p { font-size: 12.5px; color: var(--text-muted); }
+
+  /* CODE */
+  .code-block {
+    background: var(--code-bg); border-radius: var(--radius-sm);
+    padding: 14px 16px; overflow-x: auto; margin-top: 10px;
+  }
+  .code-block code {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    font-size: 12.5px; color: var(--code-text); line-height: 1.65; white-space: pre;
+  }
+  .kw { color: #89B4FA; } .fn { color: #89DCEB; } .str { color: #A6E3A1; }
+  .num { color: #FAB387; } .cm { color: #6C7086; font-style: italic; }
+  .var { color: #CDD6F4; }
+
+  /* DIAGRAM */
+  .diagram-wrap {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 24px; margin: 24px 0; overflow-x: auto;
+  }
+  .diagram-title { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 16px; }
+
+  /* SVG DIAGRAM */
+  svg.flow { display: block; margin: 0 auto; }
+  .flow-box { fill: var(--surface-raised); stroke: var(--border); stroke-width: 1.5; rx: 6; }
+  .flow-box-accent { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
+  .flow-box-green { fill: var(--green-soft); stroke: var(--green); stroke-width: 1.5; }
+  .flow-box-amber { fill: var(--amber-soft); stroke: var(--amber); stroke-width: 1.5; }
+  .flow-text { font-family: system-ui, sans-serif; font-size: 12px; fill: var(--text); text-anchor: middle; dominant-baseline: middle; }
+  .flow-sub  { font-family: 'SF Mono', Consolas, monospace; font-size: 10px; fill: var(--text-muted); text-anchor: middle; dominant-baseline: middle; }
+  .flow-arrow { stroke: var(--text-muted); stroke-width: 1.5; fill: none; marker-end: url(#arr); }
+
+  /* COMPARISON TABLE */
+  .cmp-table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
+  .cmp-table th {
+    text-align: left; padding: 8px 12px; background: var(--surface-raised);
+    border: 1px solid var(--border); font-size: 11px; font-weight: 700;
+    letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted);
+  }
+  .cmp-table td { padding: 10px 12px; border: 1px solid var(--border); vertical-align: top; }
+  .cmp-table tr:hover td { background: var(--surface-raised); }
+  .cmp-tool { font-weight: 600; color: var(--accent); }
+
+  /* CALLOUT */
+  .callout {
+    display: flex; gap: 10px; padding: 12px 14px;
+    border-radius: var(--radius-sm); margin: 12px 0; font-size: 13px;
+  }
+  .callout-info { background: var(--accent-soft); border-left: 3px solid var(--accent); }
+  .callout-warn { background: var(--amber-soft); border-left: 3px solid var(--amber); }
+  .callout-ok   { background: var(--green-soft); border-left: 3px solid var(--green); }
+  .callout-icon { flex-shrink: 0; font-size: 15px; }
+
+  h3 { font-size: 15px; font-weight: 700; margin: 20px 0 10px; }
+  p { margin-bottom: 8px; }
+
+  @media (max-width: 768px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+    .main { padding: 24px 20px; }
+  }
+</style>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <div class="badge">MLOps · SageMaker</div>
+      <h2>Clasificador de Sentimiento IMDB</h2>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Flujo general</div>
+      <a class="nav-item" href="#objetivos"><span class="nav-dot" style="background:var(--green)"></span>Objetivos</a>
+      <a class="nav-item" href="#contexto"><span class="nav-dot" style="background:#DC2626"></span>Contexto del problema</a>
+      <a class="nav-item" href="#config"><span class="nav-dot" style="background:#D97706"></span>S3 + IAM + Perfiles</a>
+      <a class="nav-item" href="#overview"><span class="nav-dot" style="background:#2563EB"></span>Arquitectura</a>
+      <a class="nav-item" href="#analogias"><span class="nav-dot" style="background:#7C3AED"></span>FastAPI · joblib</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Notebook 1</div>
+      <a class="nav-item" href="#nb1"><span class="nav-dot" style="background:#2563EB"></span>Procesamiento de datos</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Notebook 2</div>
+      <a class="nav-item" href="#nb2"><span class="nav-dot" style="background:#16A34A"></span>Entrenamiento</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Notebook 3</div>
+      <a class="nav-item" href="#nb3"><span class="nav-dot" style="background:#D97706"></span>Inferencia y evaluación</a>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- HERO -->
+    <div class="hero">
+      <div class="hero-eyebrow">Guía técnica · Sesión 15</div>
+      <h1>Clasificador de Sentimiento IMDB en AWS SageMaker</h1>
+      <p>Guía celda por celda de los tres notebooks: procesamiento, entrenamiento con XGBoost y despliegue de endpoint serverless. Con analogías a GitHub Actions, FastAPI y joblib.</p>
+      <div class="hero-chips">
+        <span class="chip">AWS SageMaker</span>
+        <span class="chip">XGBoost</span>
+        <span class="chip">IMDB Dataset</span>
+        <span class="chip">Serverless Endpoint</span>
+        <span class="chip">Python 3.10</span>
+      </div>
+    </div>
+
+    <!-- CONTEXTO -->
+    <div class="section" id="contexto">
+      <div class="section-header">
+        <div class="section-num" style="background:var(--red)">🎬</div>
+        <h2>Contexto del problema</h2>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">El equipo</div>
+          <div style="font-size:14px;font-weight:600;margin-bottom:6px">Equipo de IA de Netflix</div>
+          <p style="font-size:13px;color:var(--text-muted)">Los compañeros de producto han lanzado una nueva función: los usuarios pueden escribir comentarios sobre las películas que ven.</p>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">El objetivo</div>
+          <div style="font-size:14px;font-weight:600;margin-bottom:6px">Clasificador de sentimiento</div>
+          <p style="font-size:13px;color:var(--text-muted)">Saber si el comentario es <strong>positivo</strong> → recomendar películas similares, o <strong>negativo</strong> → dejar de recomendar ese tipo de película.</p>
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <span class="callout-icon">🎯</span>
+        <span><strong>Enfoque del taller:</strong> No nos importa el modelo en sí ni optimizarlo al máximo. Lo importante es entender el <strong>proceso MLOps completo</strong>: recolección de datos → entrenamiento → despliegue → inferencia. El modelo (XGBoost) se trata como caja negra.</span>
+      </div>
+
+      <h3>Dataset: IMDB</h3>
+      <p style="color:var(--text-muted);margin-bottom:14px">En lugar de contratar personas que etiqueten comentarios, se usa el dataset público de IMDB. Cada reseña ya tiene puntuación, lo que permite enlazar texto con sentimiento positivo/negativo de forma automática.</p>
+
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
+        <div style="background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;text-align:center">
+          <div style="font-size:22px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums">25,000</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">reseñas de entrenamiento</div>
+        </div>
+        <div style="background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;text-align:center">
+          <div style="font-size:22px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums">20,000</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">palabras en el vocabulario</div>
+        </div>
+        <div style="background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;text-align:center">
+          <div style="font-size:22px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums">500</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">tokens por reseña (maxlen)</div>
+        </div>
+      </div>
+
+      <p style="color:var(--text-muted);font-size:13px">Las reseñas vienen pre-procesadas: cada palabra se convierte en un entero (su índice en el vocabulario). Las reseñas más cortas se rellenan con ceros (<em>padding</em>); las más largas se truncan. Resultado: una matriz de forma <code style="font-size:12px">(25000, 500)</code> lista para XGBoost.</p>
+
+      <div class="diagram-wrap" style="margin-top:20px">
+        <div class="diagram-title">Cómo funciona la recomendación</div>
+        <svg class="flow" width="660" height="130" viewBox="0 0 660 130">
+          <defs>
+            <marker id="arr3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="var(--text-muted)"/>
+            </marker>
+          </defs>
+          <!-- user comment -->
+          <rect x="10" y="45" width="130" height="40" rx="6" fill="var(--surface-raised)" stroke="var(--border)" stroke-width="1.5"/>
+          <text x="75" y="62" class="flow-text" style="font-size:11px">Usuario escribe</text>
+          <text x="75" y="76" class="flow-sub">"This film was great!"</text>
+          <line x1="140" y1="65" x2="165" y2="65" stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arr3)"/>
+
+          <!-- model -->
+          <rect x="165" y="40" width="130" height="50" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+          <text x="230" y="60" class="flow-text" style="font-size:11px;fill:var(--accent);font-weight:600">Modelo XGBoost</text>
+          <text x="230" y="75" class="flow-sub">Clasificador de sentimiento</text>
+
+          <!-- arrows to outcomes -->
+          <line x1="295" y1="55" x2="330" y2="35" stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arr3)"/>
+          <line x1="295" y1="75" x2="330" y2="95" stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arr3)"/>
+
+          <!-- positive -->
+          <rect x="330" y="15" width="150" height="40" rx="6" fill="var(--green-soft)" stroke="var(--green)" stroke-width="1.5"/>
+          <text x="405" y="32" class="flow-text" style="font-size:11px;fill:var(--green);font-weight:600">Positivo → 1</text>
+          <text x="405" y="46" class="flow-sub">Recomendar películas similares</text>
+
+          <!-- negative -->
+          <rect x="330" y="75" width="150" height="40" rx="6" fill="var(--red-soft)" stroke="var(--red)" stroke-width="1.5"/>
+          <text x="405" y="92" class="flow-text" style="font-size:11px;fill:var(--red);font-weight:600">Negativo → 0</text>
+          <text x="405" y="106" class="flow-sub">No recomendar más de este tipo</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- OBJETIVOS -->
+    <div class="section" id="objetivos">
+      <div class="section-header">
+        <div class="section-num" style="background:var(--green)">🎯</div>
+        <h2>Objetivos del lab</h2>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+
+        <div style="background:var(--surface);border:1px solid var(--green);border-radius:var(--radius);padding:18px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--green);margin-bottom:12px">Objetivo principal</div>
+          <p style="font-size:13px;color:var(--text);line-height:1.7;margin:0">
+            Construir y desplegar un pipeline MLOps completo en AWS SageMaker: desde el procesamiento del dataset IMDB hasta un endpoint serverless en producción que clasifica reseñas como positivas o negativas.
+          </p>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:12px">Contexto real</div>
+          <p style="font-size:13px;color:var(--text);line-height:1.7;margin:0">
+            Simula el flujo de un equipo de IA de Netflix que necesita detectar automáticamente si los comentarios de usuarios sobre películas son positivos o negativos para alimentar el sistema de recomendaciones.
+          </p>
+        </div>
+
+      </div>
+
+      <div class="cell-list">
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num" style="background:var(--green)">✓</span>
+            <span class="cell-title">Lo que aprenderás</span>
+          </div>
+          <div class="cell-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+              <div>
+                <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:8px">AWS / Infraestructura</div>
+                <ul style="font-size:13px;color:var(--text);line-height:2;padding-left:16px;margin:0">
+                  <li>Crear S3 buckets y políticas</li>
+                  <li>Configurar roles IAM</li>
+                  <li>Automatizar con CloudFormation</li>
+                  <li>Entender Service Quotas</li>
+                  <li>Desplegar endpoints serverless</li>
+                </ul>
+              </div>
+              <div>
+                <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--purple);margin-bottom:8px">Machine Learning</div>
+                <ul style="font-size:13px;color:var(--text);line-height:2;padding-left:16px;margin:0">
+                  <li>Procesar texto con índices de palabras</li>
+                  <li>Aplicar padding a secuencias</li>
+                  <li>Entrenar XGBoost para clasificación</li>
+                  <li>Empaquetar modelos en <code>model.tar.gz</code></li>
+                  <li>Evaluar con matriz de confusión</li>
+                </ul>
+              </div>
+              <div>
+                <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--green);margin-bottom:8px">MLOps</div>
+                <ul style="font-size:13px;color:var(--text);line-height:2;padding-left:16px;margin:0">
+                  <li>Separar procesamiento, training e inferencia</li>
+                  <li>Versionar modelos en S3</li>
+                  <li>Invocar endpoints en producción</li>
+                  <li>Gestionar permisos por principio de menor privilegio</li>
+                  <li>Diferencia cuota 0 vs cuota habilitada</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num" style="background:var(--amber)">⚠</span>
+            <span class="cell-title">Lo que NO hace este lab (limitaciones de cuota)</span>
+          </div>
+          <div class="cell-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div>
+                <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--red);margin-bottom:8px">Sin cuota habilitada</div>
+                <ul style="font-size:13px;color:var(--text);line-height:2;padding-left:16px;margin:0">
+                  <li>SageMaker Estimator (training job dedicado)</li>
+                  <li>Training en instancia separada (<code>ml.m5.xlarge</code>)</li>
+                  <li>Logs automáticos en CloudWatch</li>
+                  <li>SageMaker Pipelines</li>
+                </ul>
+              </div>
+              <div>
+                <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--green);margin-bottom:8px">Solución en este lab</div>
+                <ul style="font-size:13px;color:var(--text);line-height:2;padding-left:16px;margin:0">
+                  <li><code>xgb.train()</code> directo en el notebook</li>
+                  <li>Training en la instancia del notebook</li>
+                  <li>Output visible en el notebook</li>
+                  <li>Deploy serverless sí funciona ✓</li>
+                </ul>
+              </div>
+            </div>
+            <div class="callout callout-info" style="margin-top:12px">
+              <span class="callout-icon">ℹ</span>
+              <span style="font-size:12.5px">Cuentas personales: solicitar aumento en <strong>Service Quotas → ml.m5.xlarge for training job usage → Request quota increase → valor 1</strong>. Aprobación en 1-3 días hábiles.</span>
+            </div>
+          </div>
+        </div>
+
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num" style="background:var(--purple)">📦</span>
+            <span class="cell-title">Entregables del lab</span>
+          </div>
+          <div class="cell-body">
+            <div style="display:flex;flex-direction:column;gap:10px">
+
+              <div style="display:flex;align-items:flex-start;gap:12px;padding:12px;background:var(--surface-raised);border-radius:var(--radius-sm)">
+                <div style="font-size:20px;line-height:1">1</div>
+                <div>
+                  <div style="font-size:13px;font-weight:700;margin-bottom:3px">Endpoint serverless desplegado en AWS</div>
+                  <div style="font-size:12.5px;color:var(--text-muted)">Al terminar el notebook 2 debe aparecer <code>mi-primer-endpoint-serverless</code> en estado <strong>InService</strong> en SageMaker → Endpoints.</div>
+                </div>
+              </div>
+
+              <div style="display:flex;align-items:flex-start;gap:12px;padding:12px;background:var(--surface-raised);border-radius:var(--radius-sm)">
+                <div style="font-size:20px;line-height:1">2</div>
+                <div>
+                  <div style="font-size:13px;font-weight:700;margin-bottom:3px">Inferencia con texto real</div>
+                  <div style="font-size:12.5px;color:var(--text-muted)">Invocar el endpoint con una reseña propia y obtener <code>0</code> (negativa) o <code>1</code> (positiva). Ver el código de ejemplo abajo.</div>
+                  <div class="code-block" style="margin-top:8px"><code><span class="kw">from</span> sagemaker.predictor <span class="kw">import</span> Predictor
+<span class="kw">from</span> sagemaker.serializers <span class="kw">import</span> CSVSerializer
+<span class="kw">import</span> json, urllib.request, numpy <span class="kw">as</span> np
+
+<span class="cm"># cargar word_index</span>
+<span class="kw">with</span> <span class="fn">open</span>(<span class="str">"imdb_word_index.json"</span>) <span class="kw">as</span> f:
+    word_index = json.<span class="fn">load</span>(f)
+
+<span class="cm"># convertir texto a índices</span>
+<span class="kw">def</span> <span class="fn">texto_a_vector</span>(texto, maxlen=<span class="num">500</span>):
+    tokens = texto.<span class="fn">lower</span>().<span class="fn">split</span>()
+    indices = [word_index.<span class="fn">get</span>(w, <span class="num">2</span>) + <span class="num">3</span> <span class="kw">for</span> w <span class="kw">in</span> tokens]
+    indices = indices[-maxlen:]  <span class="cm"># truncar</span>
+    padded = [<span class="num">0</span>] * (maxlen - <span class="fn">len</span>(indices)) + indices  <span class="cm"># padding</span>
+    <span class="kw">return</span> padded
+
+<span class="cm"># tu reseña aquí</span>
+resena = <span class="str">"This movie was absolutely fantastic the acting was superb"</span>
+vector = <span class="fn">texto_a_vector</span>(resena)
+
+<span class="cm"># invocar endpoint</span>
+predictor = <span class="fn">Predictor</span>(
+    endpoint_name=<span class="str">"mi-primer-endpoint-serverless"</span>,
+    serializer=<span class="fn">CSVSerializer</span>()
+)
+csv_input = <span class="str">","</span>.<span class="fn">join</span>([<span class="fn">str</span>(x) <span class="kw">for</span> x <span class="kw">in</span> vector])
+resultado = predictor.<span class="fn">predict</span>(csv_input).<span class="fn">decode</span>(<span class="str">"utf-8"</span>).<span class="fn">strip</span>()
+
+<span class="fn">print</span>(<span class="str">f"Reseña: {resena}"</span>)
+<span class="fn">print</span>(<span class="str">f"Predicción: {'POSITIVA ✓' if float(resultado) > 0.5 else 'NEGATIVA ✗'}"</span>)
+<span class="fn">print</span>(<span class="str">f"Score: {float(resultado):.3f}"</span>)</code></div>
+                </div>
+              </div>
+
+              <div style="display:flex;align-items:flex-start;gap:12px;padding:12px;background:var(--surface-raised);border-radius:var(--radius-sm)">
+                <div style="font-size:20px;line-height:1">3</div>
+                <div>
+                  <div style="font-size:13px;font-weight:700;margin-bottom:3px">Matriz de confusión con accuracy ≥ 50%</div>
+                  <div style="font-size:12.5px;color:var(--text-muted)">El notebook 3 genera la matriz de confusión sobre 50 muestras del test set. El modelo debe superar el 50% de accuracy (baseline de clasificación aleatoria).</div>
+                </div>
+              </div>
+
+              <div style="display:flex;align-items:flex-start;gap:12px;padding:12px;background:var(--surface-raised);border-radius:var(--radius-sm)">
+                <div style="font-size:20px;line-height:1">4</div>
+                <div>
+                  <div style="font-size:13px;font-weight:700;margin-bottom:3px">Infraestructura creada con CloudFormation</div>
+                  <div style="font-size:12.5px;color:var(--text-muted)">El stack debe aparecer en estado <strong>CREATE_COMPLETE</strong> en CloudFormation con los 3 outputs: <code>BucketName</code>, <code>RoleArn</code>, <code>RoleName</code>.</div>
+                </div>
+              </div>
+
+              <div style="display:flex;align-items:flex-start;gap:12px;padding:12px;background:var(--surface-raised);border-radius:var(--radius-sm)">
+                <div style="font-size:20px;line-height:1">5</div>
+                <div>
+                  <div style="font-size:13px;font-weight:700;margin-bottom:3px">Endpoint eliminado al finalizar</div>
+                  <div style="font-size:12.5px;color:var(--text-muted)">Ejecutar la sección "3 - Borrar endpoint y modelos" del notebook 3 para liberar recursos y evitar costos. Verificar en SageMaker → Endpoints que no quede ninguno activo.</div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /objetivos -->
+
+    <!-- ARQUITECTURA GENERAL -->
+    <div class="section" id="overview">
+      <div class="section-header">
+        <div class="section-num" style="background:var(--accent)">⬡</div>
+        <h2>Arquitectura del pipeline</h2>
+      </div>
+
+      <div class="diagram-wrap">
+        <div class="diagram-title">Flujo end-to-end</div>
+        <svg class="flow" width="760" height="110" viewBox="0 0 760 110">
+          <defs>
+            <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="var(--text-muted)"/>
+            </marker>
+          </defs>
+          <!-- boxes -->
+          <rect x="10" y="30" width="120" height="50" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+          <text x="70" y="52" class="flow-text" style="fill:var(--accent);font-weight:600">Notebook 1</text>
+          <text x="70" y="68" class="flow-sub">Procesamiento</text>
+
+          <rect x="175" y="30" width="120" height="50" rx="6" fill="var(--green-soft)" stroke="var(--green)" stroke-width="1.5"/>
+          <text x="235" y="52" class="flow-text" style="fill:var(--green);font-weight:600">Notebook 2</text>
+          <text x="235" y="68" class="flow-sub">Entrenamiento</text>
+
+          <rect x="340" y="30" width="120" height="50" rx="6" fill="var(--amber-soft)" stroke="var(--amber)" stroke-width="1.5"/>
+          <text x="400" y="52" class="flow-text" style="fill:var(--amber);font-weight:600">Notebook 2</text>
+          <text x="400" y="68" class="flow-sub">Deploy Serverless</text>
+
+          <rect x="505" y="30" width="120" height="50" rx="6" fill="var(--purple-soft)" stroke="var(--purple)" stroke-width="1.5"/>
+          <text x="565" y="52" class="flow-text" style="fill:var(--purple);font-weight:600">Notebook 3</text>
+          <text x="565" y="68" class="flow-sub">Inferencia + Eval</text>
+
+          <!-- arrows -->
+          <line x1="130" y1="55" x2="170" y2="55" class="flow-arrow"/>
+          <line x1="295" y1="55" x2="335" y2="55" class="flow-arrow"/>
+          <line x1="460" y1="55" x2="500" y2="55" class="flow-arrow"/>
+
+          <!-- labels -->
+          <text x="150" y="46" style="font-size:9px;fill:var(--text-muted);text-anchor:middle;font-family:system-ui">CSVs</text>
+          <text x="315" y="46" style="font-size:9px;fill:var(--text-muted);text-anchor:middle;font-family:system-ui">model.tar.gz</text>
+          <text x="480" y="46" style="font-size:9px;fill:var(--text-muted);text-anchor:middle;font-family:system-ui">endpoint</text>
+        </svg>
+      </div>
+
+      <div class="callout callout-info">
+        <span class="callout-icon">ℹ</span>
+        <span><strong>Contexto:</strong> El dataset IMDB tiene 25.000 reseñas de películas para entrenamiento y 25.000 para test. Cada reseña ya viene convertida a secuencia de enteros (índices del vocabulario). El modelo XGBoost aprende a clasificar sentimiento positivo (1) o negativo (0).</span>
+      </div>
+    </div>
+
+    <!-- ANALOGÍAS -->
+    <div class="section" id="analogias">
+      <div class="section-header">
+        <div class="section-num" style="background:var(--purple)">↔</div>
+        <h2>Analogías: FastAPI · joblib</h2>
+      </div>
+
+      <p style="color:var(--text-muted);margin-bottom:16px">Este pipeline en SageMaker hace exactamente lo mismo que harías con FastAPI + joblib. La diferencia es que SageMaker gestiona la infraestructura: no necesitas levantar ni mantener el servidor.</p>
+
+      <div style="overflow-x:auto">
+        <table class="cmp-table">
+          <thead>
+            <tr>
+              <th style="width:30%">Concepto MLOps</th>
+              <th style="width:35%">FastAPI + joblib</th>
+              <th style="width:35%">AWS SageMaker (este lab)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Serializar el modelo</strong></td>
+              <td><span class="cmp-tool">joblib</span><br><code style="font-size:11px">joblib.dump(model, 'model.pkl')</code></td>
+              <td><code style="font-size:11px">model.save_model('xgboost-model')</code><br>→ empaquetado en <code style="font-size:11px">model.tar.gz</code> → S3</td>
+            </tr>
+            <tr>
+              <td><strong>Servir predicciones por HTTP</strong></td>
+              <td><span class="cmp-tool">FastAPI</span><br><code style="font-size:11px">@app.post("/predict")<br>def predict(data):<br>  return model.predict(data)</code></td>
+              <td>Serverless Endpoint — el container XGBoost ya tiene el servidor HTTP integrado</td>
+            </tr>
+            <tr>
+              <td><strong>Llamar al modelo</strong></td>
+              <td><code style="font-size:11px">requests.post(<br>  "http://localhost:8000/predict",<br>  json=data)</code></td>
+              <td><code style="font-size:11px">predictor.predict(payload_as_csv)</code><br>→ petición HTTP al endpoint de SageMaker</td>
+            </tr>
+            <tr>
+              <td><strong>Gestión de infraestructura</strong></td>
+              <td>Tú gestionas: instalar deps, levantar server, escalar</td>
+              <td>SageMaker lo gestiona: escala a 0, factura por invocación</td>
+            </tr>
+            <tr>
+              <td><strong>Artefactos del modelo</strong></td>
+              <td>Archivo <code style="font-size:11px">.pkl</code> en disco o S3 manual</td>
+              <td>S3 bucket <code style="font-size:11px">mlops-mi-clasificador-664418991493</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="diagram-wrap" style="margin-top:24px">
+        <div class="diagram-title">GitHub Actions vs SageMaker — mismo concepto, distinta escala</div>
+        <svg class="flow" width="700" height="200" viewBox="0 0 700 200">
+          <defs>
+            <marker id="arr2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="var(--text-muted)"/>
+            </marker>
+          </defs>
+          <!-- GH Actions row -->
+          <text x="10" y="28" style="font-size:11px;font-weight:700;fill:var(--text-muted);font-family:system-ui">GitHub Actions</text>
+          <rect x="10" y="36" width="100" height="36" rx="5" fill="var(--surface-raised)" stroke="var(--border)" stroke-width="1.5"/>
+          <text x="60" y="58" class="flow-text" style="font-size:11px">on: push</text>
+          <line x1="110" y1="54" x2="130" y2="54" stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arr2)"/>
+          <rect x="130" y="36" width="110" height="36" rx="5" fill="var(--surface-raised)" stroke="var(--border)" stroke-width="1.5"/>
+          <text x="185" y="58" class="flow-text" style="font-size:11px">job: train.py</text>
+          <line x1="240" y1="54" x2="260" y2="54" stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arr2)"/>
+          <rect x="260" y="36" width="130" height="36" rx="5" fill="var(--surface-raised)" stroke="var(--border)" stroke-width="1.5"/>
+          <text x="325" y="51" class="flow-text" style="font-size:11px">joblib.dump(model)</text>
+          <text x="325" y="65" class="flow-sub">→ model.pkl</text>
+          <line x1="390" y1="54" x2="410" y2="54" stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arr2)"/>
+          <rect x="410" y="36" width="130" height="36" rx="5" fill="var(--surface-raised)" stroke="var(--border)" stroke-width="1.5"/>
+          <text x="475" y="51" class="flow-text" style="font-size:11px">FastAPI</text>
+          <text x="475" y="65" class="flow-sub">POST /predict</text>
+          <line x1="540" y1="54" x2="560" y2="54" stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arr2)"/>
+          <rect x="560" y="36" width="110" height="36" rx="5" fill="var(--surface-raised)" stroke="var(--border)" stroke-width="1.5"/>
+          <text x="615" y="58" class="flow-text" style="font-size:11px">{ prediction }</text>
+
+          <!-- divider -->
+          <line x1="10" y1="100" x2="690" y2="100" stroke="var(--border)" stroke-width="1" stroke-dasharray="4,4"/>
+
+          <!-- SageMaker row -->
+          <text x="10" y="122" style="font-size:11px;font-weight:700;fill:var(--text-muted);font-family:system-ui">AWS SageMaker</text>
+          <rect x="10" y="130" width="100" height="36" rx="5" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+          <text x="60" y="148" class="flow-text" style="font-size:11px;fill:var(--accent)">Notebook 1</text>
+          <text x="60" y="162" class="flow-sub">CSVs → S3</text>
+          <line x1="110" y1="148" x2="130" y2="148" stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arr2)"/>
+          <rect x="130" y="130" width="110" height="36" rx="5" fill="var(--green-soft)" stroke="var(--green)" stroke-width="1.5"/>
+          <text x="185" y="148" class="flow-text" style="font-size:11px;fill:var(--green)">Notebook 2A</text>
+          <text x="185" y="162" class="flow-sub">xgb.train()</text>
+          <line x1="240" y1="148" x2="260" y2="148" stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arr2)"/>
+          <rect x="260" y="130" width="130" height="36" rx="5" fill="var(--green-soft)" stroke="var(--green)" stroke-width="1.5"/>
+          <text x="325" y="145" class="flow-text" style="font-size:11px;fill:var(--green)">model.save_model()</text>
+          <text x="325" y="159" class="flow-sub">→ model.tar.gz → S3</text>
+          <line x1="390" y1="148" x2="410" y2="148" stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arr2)"/>
+          <rect x="410" y="130" width="130" height="36" rx="5" fill="var(--amber-soft)" stroke="var(--amber)" stroke-width="1.5"/>
+          <text x="475" y="145" class="flow-text" style="font-size:11px;fill:var(--amber)">Notebook 2B</text>
+          <text x="475" y="159" class="flow-sub">Serverless endpoint</text>
+          <line x1="540" y1="148" x2="560" y2="148" stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arr2)"/>
+          <rect x="560" y="130" width="110" height="36" rx="5" fill="var(--purple-soft)" stroke="var(--purple)" stroke-width="1.5"/>
+          <text x="615" y="148" class="flow-text" style="font-size:11px;fill:var(--purple)">Notebook 3</text>
+          <text x="615" y="162" class="flow-sub">predictor.predict()</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- CONFIGURACIÓN: TABS -->
+    <div class="section" id="config">
+      <div class="section-header">
+        <div class="section-num" style="background:var(--amber)">⚙</div>
+        <h2>Configuración de infraestructura</h2>
+      </div>
+
+      <!-- TAB SELECTOR (CSS-only radio trick) -->
+      <style>
+        #tab-radio-cf, #tab-radio-manual { display:none; }
+        /* tab label base */
+        .tab-label {
+          padding:9px 22px;
+          font-size:13px;
+          font-weight:600;
+          cursor:pointer;
+          user-select:none;
+          transition:background .15s,color .15s;
+          background:var(--surface-raised);
+          color:var(--text-muted);
+        }
+        /* default: manual checked → manual label active */
+        #tab-radio-manual:checked ~ .tab-bar label[for="tab-radio-manual"] { background:var(--accent); color:#fff; }
+        /* when cf selected */
+        #tab-radio-cf:checked ~ .tab-bar label[for="tab-radio-cf"]     { background:var(--accent); color:#fff; }
+        #tab-radio-cf:checked ~ .tab-bar label[for="tab-radio-manual"] { background:var(--surface-raised); color:var(--text-muted); }
+        /* panels — default manual visible */
+        #panel-cf     { display:none; }
+        #panel-manual { display:block; }
+        #tab-radio-cf:checked ~ .tab-panels #panel-cf     { display:block; }
+        #tab-radio-cf:checked ~ .tab-panels #panel-manual { display:none; }
+      </style>
+      <input type="radio" id="tab-radio-cf" name="config-tab">
+      <input type="radio" id="tab-radio-manual" name="config-tab" checked>
+      <div class="tab-bar" style="display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:24px;width:fit-content">
+        <label for="tab-radio-manual" class="tab-label">
+          🖱 Manual (consola)
+        </label>
+        <label for="tab-radio-cf" class="tab-label">
+          ☁ CloudFormation
+        </label>
+      </div>
+      <div class="tab-panels">
+
+      <!-- ════════════════════════════════ PANEL CF ════════════════════════════════ -->
+      <div id="panel-cf">
+
+        <div class="callout callout-ok">
+          <span class="callout-icon">✓</span>
+          <span><strong>Recomendado para cuentas AWS reales.</strong> Un solo comando crea el bucket S3, el rol IAM y actualiza los notebooks. En AWS Academy el rol IAM puede estar bloqueado — usar el tab Manual en ese caso. En cuentas personales CloudFormation crea todo automáticamente.</span>
+        </div>
+
+        <div class="diagram-wrap" style="margin:20px 0">
+          <div class="diagram-title">Flujo del setup automatizado</div>
+          <svg class="flow" width="640" height="110" viewBox="0 0 640 110">
+            <defs>
+              <marker id="arrcf" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L8,3 z" fill="var(--text-muted)"/>
+              </marker>
+            </defs>
+            <rect x="10" y="35" width="110" height="40" rx="6" fill="var(--surface-raised)" stroke="var(--border)" stroke-width="1.5"/>
+            <text x="65" y="52" class="flow-text" style="font-size:11px;font-weight:600">cloudformation</text>
+            <text x="65" y="66" class="flow-sub">.yaml</text>
+            <line x1="120" y1="55" x2="148" y2="55" stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arrcf)"/>
+            <rect x="148" y="15" width="110" height="36" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+            <text x="203" y="30" class="flow-text" style="font-size:11px;fill:var(--accent);font-weight:600">S3 Bucket</text>
+            <text x="203" y="44" class="flow-sub">mlops-...-{AccountId}</text>
+            <rect x="148" y="59" width="110" height="36" rx="6" fill="var(--purple-soft)" stroke="var(--purple)" stroke-width="1.5"/>
+            <text x="203" y="74" class="flow-text" style="font-size:11px;fill:var(--purple);font-weight:600">IAM Role</text>
+            <text x="203" y="88" class="flow-sub">S3 + Endpoint + ECR</text>
+            <line x1="258" y1="33" x2="295" y2="50" stroke="var(--text-muted)" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#arrcf)"/>
+            <line x1="258" y1="77" x2="295" y2="62" stroke="var(--text-muted)" stroke-width="1" stroke-dasharray="3,3"/>
+            <rect x="295" y="35" width="110" height="40" rx="6" fill="var(--surface-raised)" stroke="var(--border)" stroke-width="1.5"/>
+            <text x="350" y="52" class="flow-text" style="font-size:11px;font-weight:600">CF Outputs</text>
+            <text x="350" y="66" class="flow-sub">BucketName · RoleArn</text>
+            <line x1="405" y1="55" x2="433" y2="55" stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arrcf)"/>
+            <text x="419" y="47" style="font-size:9px;fill:var(--text-muted);text-anchor:middle;font-family:system-ui">setup.py</text>
+            <rect x="433" y="35" width="120" height="40" rx="6" fill="var(--green-soft)" stroke="var(--green)" stroke-width="1.5"/>
+            <text x="493" y="52" class="flow-text" style="font-size:11px;fill:var(--green);font-weight:600">Notebooks</text>
+            <text x="493" y="66" class="flow-sub">bucket actualizado ✓</text>
+          </svg>
+        </div>
+
+        <div class="cell-list">
+
+          <div class="cell-card">
+            <div class="cell-header">
+              <span class="cell-num">Paso 1</span>
+              <span class="cell-title">Verificar credenciales AWS e instalar boto3</span>
+              <span class="tag tag-setup">Local</span>
+            </div>
+            <div class="cell-body">
+              <div class="cell-desc">En el terminal del SageMaker Notebook las credenciales ya están disponibles vía el rol de instancia. En local, configurar con <code>aws configure</code>.</div>
+              <div class="code-block"><code><span class="cm"># verificar identidad</span>
+$ aws sts get-caller-identity
+
+<span class="cm"># instalar boto3 (en SageMaker ya viene)</span>
+$ pip install boto3</code></div>
+            </div>
+          </div>
+
+          <div class="cell-card">
+            <div class="cell-header">
+              <span class="cell-num">Paso 2</span>
+              <span class="cell-title">Estructura de archivos requerida</span>
+              <span class="tag tag-setup">Local</span>
+            </div>
+            <div class="cell-body">
+              <div class="code-block"><code>movies/
+├── cloudformation.yaml          ← template de infraestructura
+├── setup.py                     ← script de despliegue
+├── 1 - Procesamiento de los datos.ipynb
+├── 2 - Entrenamiento.ipynb
+└── 3 - Inferencia y evaluación.ipynb</code></div>
+            </div>
+          </div>
+
+          <div class="cell-card">
+            <div class="cell-header">
+              <span class="cell-num">Paso 3</span>
+              <span class="cell-title">Ejecutar setup.py</span>
+              <span class="tag tag-deploy">Deploy</span>
+            </div>
+            <div class="cell-body">
+              <div class="cell-desc">Crea todos los recursos AWS y actualiza los notebooks automáticamente con el nombre real del bucket y el ARN del rol.</div>
+              <div class="code-block"><code><span class="cm"># opción básica</span>
+$ python setup.py
+
+<span class="cm"># especificar región</span>
+$ python setup.py --region us-east-1
+
+<span class="cm"># nombre de stack personalizado</span>
+$ python setup.py --stack-name mi-stack --project mi-clasificador
+
+<span class="cm"># stack ya existe, solo actualizar notebooks</span>
+$ python setup.py --update-only</code></div>
+            </div>
+          </div>
+
+          <div class="cell-card">
+            <div class="cell-header">
+              <span class="cell-num">Paso 4</span>
+              <span class="cell-title">Output esperado</span>
+              <span class="tag tag-eval">Verificación</span>
+            </div>
+            <div class="cell-body">
+              <div class="code-block"><code><span class="cm">Región: us-east-1</span>
+<span class="cm">Stack : mlops-clasificador-sentimiento</span>
+Creando stack 'mlops-clasificador-sentimiento'...
+..........
+  ✓ Stack en estado: CREATE_COMPLETE
+
+Outputs del stack:
+  BucketName : <span class="str">mlops-mi-clasificador-664418991493</span>
+  RoleArn    : <span class="str">arn:aws:iam::664418991493:role/clasificador-sentimiento-sagemaker-role</span>
+
+Actualizando notebooks con:
+  Bucket  : mlops-mi-clasificador-664418991493
+  ✓ Actualizado: 1 - Procesamiento de los datos.ipynb
+  ✓ Actualizado: 2 - Entrenamiento.ipynb
+  — Sin cambios: 3 - Inferencia y evaluación.ipynb
+
+✓ Todo listo. Puedes ejecutar los notebooks.</code></div>
+            </div>
+          </div>
+
+          <div class="cell-card">
+            <div class="cell-header">
+              <span class="cell-num">Bonus</span>
+              <span class="cell-title">Eliminar toda la infraestructura al terminar</span>
+              <span class="tag tag-setup">Cleanup</span>
+            </div>
+            <div class="cell-body">
+              <div class="cell-desc">Borrar el stack elimina todos los recursos en un solo comando.</div>
+              <div class="code-block"><code><span class="cm"># vaciar bucket primero (requerido si tiene objetos)</span>
+$ aws s3 rm s3://mlops-mi-clasificador-664418991493/ --recursive
+
+<span class="cm"># borrar stack</span>
+$ aws cloudformation delete-stack \
+    --stack-name mlops-clasificador-sentimiento
+
+<span class="cm"># esperar confirmación</span>
+$ aws cloudformation wait stack-delete-complete \
+    --stack-name mlops-clasificador-sentimiento</code></div>
+            </div>
+          </div>
+
+        </div>
+      </div><!-- /panel-cf -->
+
+      <!-- ════════════════════════════════ PANEL MANUAL ════════════════════════════════ -->
+      <div id="panel-manual">
+
+        <div class="callout callout-warn">
+          <span class="callout-icon">⚠</span>
+          <span><strong>Labs de AWS Academy:</strong> el rol IAM ya viene creado por el lab. Solo necesitas crear el bucket S3 y agregar las políticas.</span>
+        </div>
+
+        <div class="cell-list">
+
+          <div class="cell-card">
+            <div class="cell-header">
+              <span class="cell-num">Paso 1</span>
+              <span class="cell-title">Crear el bucket S3</span>
+              <span class="tag tag-setup">S3</span>
+            </div>
+            <div class="cell-body">
+              <div class="cell-desc"><strong>AWS Console → S3 → Create bucket</strong></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0">
+                <div style="background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px">
+                  <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:4px">Bucket name</div>
+                  <code style="font-size:13px;color:var(--accent)">mlops-mi-clasificador-664418991493</code>
+                </div>
+                <div style="background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px">
+                  <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:4px">Region</div>
+                  <code style="font-size:13px;color:var(--accent)">us-east-1</code>
+                </div>
+              </div>
+              <p style="font-size:13px;color:var(--text-muted)">Dejar ACLs desactivadas y Block public access activado. Clic en <strong>Create bucket</strong>.</p>
+            </div>
+          </div>
+
+          <div class="cell-card">
+            <div class="cell-header">
+              <span class="cell-num">Paso 2</span>
+              <span class="cell-title">Agregar Bucket Policy</span>
+              <span class="tag tag-setup">S3</span>
+            </div>
+            <div class="cell-body">
+              <div class="cell-desc"><strong>S3 → mlops-mi-clasificador-664418991493 → Permissions → Bucket policy → Edit</strong></div>
+              <div class="code-block"><code><span class="cm">{</span>
+  <span class="str">"Version"</span>: <span class="str">"2012-10-17"</span>,
+  <span class="str">"Statement"</span>: [{
+    <span class="str">"Effect"</span>: <span class="str">"Allow"</span>,
+    <span class="str">"Principal"</span>: {
+      <span class="str">"AWS"</span>: <span class="str">"arn:aws:iam::664418991493:role/ml-training-opt-lab-SageMakerExecutionRole-U289cEFXEua5"</span>
+    },
+    <span class="str">"Action"</span>: [<span class="str">"s3:PutObject"</span>, <span class="str">"s3:GetObject"</span>, <span class="str">"s3:DeleteObject"</span>, <span class="str">"s3:ListBucket"</span>],
+    <span class="str">"Resource"</span>: [
+      <span class="str">"arn:aws:s3:::mlops-mi-clasificador-664418991493"</span>,
+      <span class="str">"arn:aws:s3:::mlops-mi-clasificador-664418991493/*"</span>
+    ]
+  }]
+<span class="cm">}</span></code></div>
+              <div class="callout callout-info" style="margin-top:10px">
+                <span class="callout-icon">ℹ</span>
+                <span style="font-size:12.5px">Reemplaza el ARN del Principal con el rol de tu lab: SageMaker Console → Notebook instances → tu instancia → IAM role ARN.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="cell-card">
+            <div class="cell-header">
+              <span class="cell-num">Paso 3</span>
+              <span class="cell-title">Agregar inline policy al rol IAM</span>
+              <span class="tag tag-setup">IAM</span>
+            </div>
+            <div class="cell-body">
+              <div class="cell-desc"><strong>IAM → Roles → ml-training-opt-lab-SageMakerExecutionRole-... → Add permissions → Create inline policy → JSON</strong></div>
+              <div class="code-block"><code><span class="cm">{</span>
+  <span class="str">"Version"</span>: <span class="str">"2012-10-17"</span>,
+  <span class="str">"Statement"</span>: [
+    {
+      <span class="str">"Sid"</span>: <span class="str">"SageMakerEndpointPerms"</span>,
+      <span class="str">"Effect"</span>: <span class="str">"Allow"</span>,
+      <span class="str">"Action"</span>: [
+        <span class="str">"sagemaker:CreateModel"</span>, <span class="str">"sagemaker:CreateEndpointConfig"</span>,
+        <span class="str">"sagemaker:CreateEndpoint"</span>, <span class="str">"sagemaker:DescribeEndpoint"</span>,
+        <span class="str">"sagemaker:InvokeEndpoint"</span>, <span class="str">"sagemaker:DeleteEndpoint"</span>,
+        <span class="str">"sagemaker:DeleteEndpointConfig"</span>, <span class="str">"sagemaker:DeleteModel"</span>,
+        <span class="str">"sagemaker:ListEndpoints"</span>, <span class="str">"sagemaker:ListEndpointConfigs"</span>, <span class="str">"sagemaker:ListModels"</span>
+      ],
+      <span class="str">"Resource"</span>: <span class="str">"*"</span>
+    },
+    {
+      <span class="str">"Sid"</span>: <span class="str">"ECRPerms"</span>,
+      <span class="str">"Effect"</span>: <span class="str">"Allow"</span>,
+      <span class="str">"Action"</span>: [
+        <span class="str">"ecr:GetAuthorizationToken"</span>, <span class="str">"ecr:BatchGetImage"</span>,
+        <span class="str">"ecr:GetDownloadUrlForLayer"</span>, <span class="str">"ecr:BatchCheckLayerAvailability"</span>
+      ],
+      <span class="str">"Resource"</span>: <span class="str">"*"</span>
+    }
+  ]
+<span class="cm">}</span></code></div>
+            </div>
+          </div>
+
+          <div class="cell-card">
+            <div class="cell-header">
+              <span class="cell-num">Paso 4</span>
+              <span class="cell-title">Resumen: por qué cada permiso</span>
+              <span class="tag tag-eval">Referencia</span>
+            </div>
+            <div class="cell-body">
+              <div style="overflow-x:auto">
+                <table class="cmp-table">
+                  <thead><tr><th>Permiso</th><th>Servicio</th><th>Por qué</th></tr></thead>
+                  <tbody>
+                    <tr><td><code style="font-size:11px">s3:PutObject</code></td><td>S3</td><td>Subir CSVs y model.tar.gz</td></tr>
+                    <tr><td><code style="font-size:11px">s3:GetObject</code></td><td>S3</td><td>SageMaker descarga el modelo al crear el endpoint</td></tr>
+                    <tr><td><code style="font-size:11px">sagemaker:CreateEndpointConfig</code></td><td>SageMaker</td><td>Configurar parámetros del endpoint serverless</td></tr>
+                    <tr><td><code style="font-size:11px">sagemaker:CreateEndpoint</code></td><td>SageMaker</td><td>Levantar el endpoint</td></tr>
+                    <tr><td><code style="font-size:11px">sagemaker:InvokeEndpoint</code></td><td>SageMaker</td><td>Enviar datos y recibir predicciones</td></tr>
+                    <tr><td><code style="font-size:11px">ecr:BatchGetImage</code></td><td>ECR</td><td>Descargar el container XGBoost para el endpoint</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div><!-- /panel-manual -->
+      </div><!-- /tab-panels -->
+    </div><!-- /section#config -->
+
+    <!-- CUOTAS -->
+    <div class="section" id="cuotas">
+      <div class="section-header">
+        <div class="section-num" style="background:var(--red)">⚡</div>
+        <h2>Cuotas de SageMaker y limitaciones de Academy</h2>
+      </div>
+
+      <div class="callout callout-warn">
+        <span class="callout-icon">⚠</span>
+        <span><strong>Cuota 0 por defecto:</strong> todas las cuentas AWS nuevas y las de AWS Academy parten con cuota 0 en instancias de training de SageMaker. <strong>En Academy no se puede aumentar.</strong> En cuentas personales o empresariales sí — debes solicitarlo antes de usar SageMaker Estimator. Por eso este lab entrena con <code>xgb.train()</code> directamente en el notebook como alternativa universal.</span>
+      </div>
+
+      <div class="cell-list">
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num">1</span>
+            <span class="cell-title">Ver cuotas actuales de SageMaker</span>
+            <span class="tag tag-setup">CLI</span>
+          </div>
+          <div class="cell-body">
+            <div class="cell-desc">Muestra todas las cuotas de instancias de training y su valor actual. En Academy todas aparecen en <code>0.0</code>.</div>
+            <div class="code-block"><code><span class="cm"># listar cuotas de training y guardar en JSON</span>
+$ aws service-quotas list-service-quotas \
+    --service-code sagemaker \
+    --query <span class="str">"Quotas[?contains(QuotaName,'training')||contains(QuotaName,'Training')].[QuotaName,Value]"</span> \
+    --output json > sagemaker_quotas.json
+
+<span class="cm"># ver en consola directamente</span>
+$ aws service-quotas list-service-quotas \
+    --service-code sagemaker \
+    --query <span class="str">"Quotas[?contains(QuotaName,'training')||contains(QuotaName,'Training')].[QuotaName,Value]"</span> \
+    --output table</code></div>
+            <div class="cell-desc" style="margin-top:10px">O desde la consola AWS: <strong>Service Quotas → AWS services → Amazon SageMaker → filtrar "training"</strong></div>
+          </div>
+        </div>
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num">2</span>
+            <span class="cell-title">Solicitar aumento de cuota (cuenta AWS real)</span>
+            <span class="tag tag-deploy">Solo cuenta real</span>
+          </div>
+          <div class="cell-body">
+            <div class="cell-desc">En una cuenta AWS real puedes solicitar aumento desde la consola o por CLI. AWS tarda 1-3 días hábiles en aprobar.</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:12px 0">
+              <div>
+                <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:8px">Desde la consola</div>
+                <ol style="font-size:13px;color:var(--text);line-height:1.8;padding-left:18px;margin:0">
+                  <li>Service Quotas</li>
+                  <li>Amazon SageMaker</li>
+                  <li>Buscar instancia (ej. <code>ml.m5.xlarge for training job usage</code>)</li>
+                  <li>Clic en <strong>Request quota increase</strong></li>
+                  <li>Ingresar valor deseado (ej. <code>1</code>)</li>
+                </ol>
+              </div>
+              <div>
+                <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:8px">Por CLI</div>
+                <div class="code-block" style="margin:0"><code><span class="cm"># obtener el quota-code primero</span>
+$ aws service-quotas list-service-quotas \
+    --service-code sagemaker \
+    --query <span class="str">"Quotas[?contains(QuotaName,'ml.m5.xlarge for training')].[QuotaCode,QuotaName]"</span> \
+    --output table
+
+<span class="cm"># solicitar aumento</span>
+$ aws service-quotas \
+  request-service-quota-increase \
+  --service-code sagemaker \
+  --quota-code <span class="str">L-XXXXXXXX</span> \
+  --desired-value 1</code></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num">3</span>
+            <span class="cell-title">Por qué Academy no puede aumentar cuotas</span>
+            <span class="tag tag-eval">Referencia</span>
+          </div>
+          <div class="cell-body">
+            <div style="overflow-x:auto">
+              <table class="cmp-table">
+                <thead><tr><th>Aspecto</th><th>Cuenta AWS real</th><th>AWS Academy</th></tr></thead>
+                <tbody>
+                  <tr><td>Cuota de training jobs</td><td>Solicitable, aprobación en 1-3 días</td><td>Bloqueada en 0, rechaza solicitudes</td></tr>
+                  <tr><td>Soluble con CloudFormation</td><td>No (cuotas no son recursos CF)</td><td>No (bloqueado administrativamente)</td></tr>
+                  <tr><td>Soluble con políticas IAM</td><td>No (cuotas son de Service Quotas, no IAM)</td><td>No</td></tr>
+                  <tr><td>Cuenta personal/empresarial nueva</td><td>Cuota 0 al inicio — solicitar aumento en Service Quotas</td><td>Tras aprobación (1-3 días) puede usar Estimator</td></tr>
+                  <tr><td>Alternativa en este lab</td><td><code>xgb.train()</code> local en notebook</td><td>Igual — <code>xgb.train()</code> local</td></tr>
+                  <tr><td>Deploy serverless</td><td>Funciona (solo necesita IAM)</td><td>Funciona tras ejecutar <code>setup.py</code></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /cuotas -->
+
+    <!-- NOTEBOOK 1 -->
+    <div class="section" id="nb1">
+      <div class="section-header">
+        <div class="section-num">1</div>
+        <div>
+          <h2>Procesamiento de datos</h2>
+          <span class="nb-path">1 - Procesamiento de los datos.ipynb</span>
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <span class="callout-icon">🎯</span>
+        <span><strong>Objetivo:</strong> Descargar el dataset IMDB, aplicar padding para uniformizar la longitud de las secuencias, dividir en train/validation/test y guardar como CSV en S3.</span>
+      </div>
+
+      <div class="cell-list">
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num">[ 1 ]</span>
+            <span class="cell-title">Importaciones y función de padding</span>
+            <span class="tag tag-setup">Setup</span>
+          </div>
+          <div class="cell-body">
+            <div class="cell-desc">Carga librerías y define <code>pad_sequences</code>: rellena con ceros todas las secuencias hasta una longitud máxima (<code>maxlen=500</code>). Las secuencias más largas se truncan por la izquierda (se conserva el final, que suele ser más informativo).</div>
+            <div class="cell-analogy">
+              <span class="cell-analogy-label">joblib ↔</span>
+              <p>Como preparar el <code>ColumnTransformer</code> antes de hacer <code>fit_transform</code>. Defines la transformación antes de aplicarla.</p>
+            </div>
+            <div class="code-block"><code><span class="kw">import</span> <span class="var">numpy</span> <span class="kw">as</span> <span class="var">np</span>
+
+<span class="kw">def</span> <span class="fn">pad_sequences</span>(<span class="var">sequences</span>, <span class="var">maxlen</span>, <span class="var">value</span>=<span class="num">0</span>):
+    <span class="var">result</span> = <span class="var">np</span>.<span class="fn">full</span>((<span class="fn">len</span>(<span class="var">sequences</span>), <span class="var">maxlen</span>), <span class="var">value</span>, dtype=<span class="var">np</span>.int32)
+    <span class="kw">for</span> <span class="var">i</span>, <span class="var">seq</span> <span class="kw">in</span> <span class="fn">enumerate</span>(<span class="var">sequences</span>):
+        <span class="kw">if</span> <span class="fn">len</span>(<span class="var">seq</span>) > <span class="var">maxlen</span>: <span class="var">seq</span> = <span class="var">seq</span>[<span class="fn">len</span>(<span class="var">seq</span>) - <span class="var">maxlen</span>:]
+        <span class="var">result</span>[<span class="var">i</span>, <span class="var">maxlen</span> - <span class="fn">len</span>(<span class="var">seq</span>):] = <span class="var">seq</span>
+    <span class="kw">return</span> <span class="var">result</span></code></div>
+          </div>
+        </div>
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num">[ 2 ]</span>
+            <span class="cell-title">Configuración de SageMaker</span>
+            <span class="tag tag-setup">Setup</span>
+          </div>
+          <div class="cell-body">
+            <div class="cell-desc">Detecta la región AWS y el IAM role del entorno. <code>sagemaker.Session()</code> es el objeto central que conecta con los servicios de AWS. Actúa como el cliente HTTP de boto3 pero con métodos de alto nivel.</div>
+            <div class="cell-analogy">
+              <span class="cell-analogy-label">FastAPI ↔</span>
+              <p>Como instanciar <code>app = FastAPI()</code> y configurar el <code>settings</code> con las credenciales de entorno.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num">[ 3 ]</span>
+            <span class="cell-title">Descarga del dataset IMDB</span>
+            <span class="tag tag-data">Datos</span>
+          </div>
+          <div class="cell-body">
+            <div class="cell-desc">Descarga <code>imdb.npz</code> desde Google Storage si no existe localmente. Carga <code>x_train</code>, <code>y_train</code>, <code>x_test</code>, <code>y_test</code>. Aplica filtro de vocabulario: solo se conservan palabras con índice &lt; 20.000.</div>
+            <div class="cell-analogy">
+              <span class="cell-analogy-label">GH Actions ↔</span>
+              <p>Como el step <code>actions/cache</code> + <code>wget</code>: si el archivo ya existe en caché, no lo vuelve a descargar.</p>
+            </div>
+            <div class="code-block"><code><span class="var">max_features</span> = <span class="num">20000</span>  <span class="cm"># vocabulario máximo</span>
+<span class="var">maxlen</span> = <span class="num">500</span>        <span class="cm"># tokens por reseña</span>
+
+<span class="cm"># cada review = lista de enteros (índice de palabra)</span>
+<span class="kw">with</span> <span class="var">np</span>.<span class="fn">load</span>(<span class="str">"imdb.npz"</span>, allow_pickle=<span class="kw">True</span>) <span class="kw">as</span> <span class="var">f</span>:
+    <span class="var">x_train</span>, <span class="var">y_train</span> = <span class="var">f</span>[<span class="str">"x_train"</span>], <span class="var">f</span>[<span class="str">"y_train"</span>]</code></div>
+          </div>
+        </div>
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num">[ 4-6 ]</span>
+            <span class="cell-title">Exploración: índices, decodificación de reseñas</span>
+            <span class="tag tag-data">Datos</span>
+          </div>
+          <div class="cell-body">
+            <div class="cell-desc">El dataset IMDB viene <strong>pre-procesado</strong> — el texto ya fue convertido a números por Keras antes de que lo descarguemos. Aquí exploramos cómo funciona ese mapeo.</div>
+
+            <div style="background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin:12px 0">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:12px">Cómo se construyó el índice (proceso previo a la descarga)</div>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center">
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px">
+                  <div style="font-size:18px;margin-bottom:4px">📝</div>
+                  <div style="font-size:11px;font-weight:700;color:var(--text)">50k reseñas</div>
+                  <div style="font-size:10px;color:var(--text-muted)">texto original de IMDB</div>
+                </div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px">
+                  <div style="font-size:18px;margin-bottom:4px">✂</div>
+                  <div style="font-size:11px;font-weight:700;color:var(--text)">Tokenización</div>
+                  <div style="font-size:10px;color:var(--text-muted)">"the film" → ["the","film"]</div>
+                </div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px">
+                  <div style="font-size:18px;margin-bottom:4px">📊</div>
+                  <div style="font-size:11px;font-weight:700;color:var(--text)">Ranking frecuencia</div>
+                  <div style="font-size:10px;color:var(--text-muted)">"the"=1M veces → índice 1</div>
+                </div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px">
+                  <div style="font-size:18px;margin-bottom:4px">🔢</div>
+                  <div style="font-size:11px;font-weight:700;color:var(--text)">imdb.npz</div>
+                  <div style="font-size:10px;color:var(--text-muted)">ya descargamos números</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin:12px 0">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:10px">Los 3 índices reservados (por eso se resta 3)</div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+                <div style="text-align:center;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm)">
+                  <code style="font-size:16px;font-weight:700;color:var(--accent)">0</code>
+                  <div style="font-size:11px;font-weight:600;margin-top:4px">Padding</div>
+                  <div style="font-size:10px;color:var(--text-muted)">relleno para igualar longitud</div>
+                </div>
+                <div style="text-align:center;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm)">
+                  <code style="font-size:16px;font-weight:700;color:var(--accent)">1</code>
+                  <div style="font-size:11px;font-weight:600;margin-top:4px">Inicio de secuencia</div>
+                  <div style="font-size:10px;color:var(--text-muted)">marca el comienzo</div>
+                </div>
+                <div style="text-align:center;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm)">
+                  <code style="font-size:16px;font-weight:700;color:var(--accent)">2</code>
+                  <div style="font-size:11px;font-weight:600;margin-top:4px">Desconocida (OOV)</div>
+                  <div style="font-size:10px;color:var(--text-muted)">palabra fuera del vocabulario</div>
+                </div>
+              </div>
+              <div class="code-block" style="margin-top:12px"><code><span class="cm"># "the" tiene índice 1 en word_index</span>
+<span class="cm"># pero en la secuencia aparece como 1+3 = 4</span>
+<span class="cm"># por eso al decodificar restamos 3</span>
+<span class="var">decoded</span> = <span class="str">' '</span>.<span class="fn">join</span>([<span class="var">integer_to_word</span>.<span class="fn">get</span>(<span class="var">i</span> - <span class="num">3</span>, <span class="str">'DESCO'</span>) <span class="kw">for</span> <span class="var">i</span> <span class="kw">in</span> <span class="var">x_train</span>[<span class="num">0</span>]])</code></div>
+            </div>
+
+            <div class="callout callout-info">
+              <span class="callout-icon">ℹ</span>
+              <span style="font-size:12.5px"><strong>El notebook nunca ve texto.</strong> <code>x_train[0]</code> ya es <code>[309, 6, 3, 1069, ...]</code>. El <code>word_index.json</code> es solo para que nosotros podamos leer las reseñas — XGBoost trabaja directamente con los números.</span>
+            </div>
+            <div class="code-block"><code><span class="var">integer_to_word</span> = {<span class="var">v</span>: <span class="var">k</span> <span class="kw">for</span> <span class="var">k</span>, <span class="var">v</span> <span class="kw">in</span> <span class="var">word_to_integer</span>.<span class="fn">items</span>()}
+<span class="var">decoded</span> = <span class="str">' '</span>.<span class="fn">join</span>([<span class="var">integer_to_word</span>.<span class="fn">get</span>(<span class="var">i</span> - <span class="num">3</span>, <span class="str">'DESCO'</span>) <span class="kw">for</span> <span class="var">i</span> <span class="kw">in</span> <span class="var">x_train</span>[<span class="num">0</span>]])</code></div>
+          </div>
+        </div>
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num">[ 7 ]</span>
+            <span class="cell-title">Padding de secuencias</span>
+            <span class="tag tag-data">Transform</span>
+          </div>
+          <div class="cell-body">
+            <div class="cell-desc">Aplica <code>pad_sequences</code>: todas las reseñas pasan a tener exactamente 500 columnas. Las reseñas cortas se rellenan con 0 a la izquierda. Resultado: matrices de forma <code>(25000, 500)</code>.</div>
+            <div class="cell-analogy">
+              <span class="cell-analogy-label">joblib ↔</span>
+              <p>Equivale a <code>pipeline.fit_transform(X_train)</code> con un <code>PadSequencesTransformer</code> custom.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num">[ 8-10 ]</span>
+            <span class="cell-title">Guardar CSVs localmente y subir a S3</span>
+            <span class="tag tag-data">Output</span>
+          </div>
+          <div class="cell-body">
+            <div class="cell-desc">Convierte a DataFrame (primera columna = label), divide test en validation (20.000) y test final (5.000), guarda CSVs. Luego los sube a S3 con <code>sagemaker_session.upload_data()</code>.</div>
+            <div class="cell-analogy">
+              <span class="cell-analogy-label">GH Actions ↔</span>
+              <p>Como el step <code>upload-artifact</code> que guarda los datos procesados como artefacto accesible por los jobs siguientes.</p>
+            </div>
+            <div class="code-block"><code><span class="cm"># estructura: label, feat_0, feat_1, ..., feat_499</span>
+<span class="var">df_train</span> = <span class="var">pd</span>.<span class="fn">concat</span>([<span class="var">df_y_train</span>, <span class="var">df_x_train</span>], axis=<span class="num">1</span>)
+<span class="var">df_train</span>.<span class="fn">to_csv</span>(<span class="str">'./data/pd/train/train.csv'</span>, header=<span class="kw">False</span>, index=<span class="kw">False</span>)
+
+<span class="var">train_s3</span> = <span class="var">sagemaker_session</span>.<span class="fn">upload_data</span>(
+    <span class="str">'./data/pd/train/train.csv'</span>,
+    bucket=<span class="str">'mlops-mi-clasificador-664418991493'</span>,
+    key_prefix=<span class="str">'clasificador_sentimiento/data/train'</span>
+)</code></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- NOTEBOOK 2 -->
+    <div class="section" id="nb2">
+      <div class="section-header">
+        <div class="section-num" style="background:var(--green)">2</div>
+        <div>
+          <h2>Entrenamiento y despliegue</h2>
+          <span class="nb-path">2 - Entrenamiento.ipynb</span>
+        </div>
+      </div>
+
+      <div class="callout callout-warn">
+        <span class="callout-icon">⚠</span>
+        <span><strong>Nota de lab:</strong> Este notebook usa <code>xgboost</code> directamente (sin SageMaker Estimator) porque el rol del lab no tiene cuota de instancias de training ni permisos ECR. El deploy sí usa SageMaker Serverless Endpoint porque ese permiso fue habilitado manualmente.</span>
+      </div>
+
+      <div class="cell-list">
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num">[ 1 ]</span>
+            <span class="cell-title">Importaciones</span>
+            <span class="tag tag-setup">Setup</span>
+          </div>
+          <div class="cell-body">
+            <div class="cell-desc">Importa <code>xgboost</code> (librería nativa, no el container de SageMaker), <code>pandas</code>, <code>sagemaker</code> para el deploy posterior.</div>
+            <div class="cell-analogy">
+              <span class="cell-analogy-label">joblib ↔</span>
+              <p>Como importar <code>from sklearn.ensemble import GradientBoostingClassifier</code> y <code>import joblib</code>.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num">[ 2 ]</span>
+            <span class="cell-title">Session con default_bucket</span>
+            <span class="tag tag-setup">Setup</span>
+          </div>
+          <div class="cell-body">
+            <div class="cell-desc">Crea <code>sagemaker.Session(default_bucket='mlops-mi-clasificador-664418991493')</code>. El <code>default_bucket</code> evita que SageMaker intente crear su propio bucket S3 al hacer el deploy.</div>
+            <div class="code-block"><code><span class="var">session</span> = <span class="var">sagemaker</span>.<span class="fn">Session</span>(default_bucket=<span class="str">'mlops-mi-clasificador-664418991493'</span>)
+<span class="cm"># Sin esto, SageMaker intentaría crear "sagemaker-us-east-1-{account_id}"</span></code></div>
+          </div>
+        </div>
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num">[ 3 ]</span>
+            <span class="cell-title">Hiperparámetros como dict Python</span>
+            <span class="tag tag-train">Entrenamiento</span>
+          </div>
+          <div class="cell-body">
+            <div class="cell-desc">En lugar de <code>xgb_estimator.set_hyperparameters()</code> (SageMaker), definimos un dict Python que pasamos directamente a <code>xgb.train()</code>.</div>
+            <div class="cell-analogy">
+              <span class="cell-analogy-label">GH Actions ↔</span>
+              <p>Como definir variables de entorno en el workflow YAML que después se pasan al script de training: <code>env: MAX_DEPTH: 5</code>.</p>
+            </div>
+            <div class="code-block"><code><span class="var">hyperparams</span> = <span class="fn">dict</span>(
+    max_depth=<span class="num">5</span>, eta=<span class="num">0.2</span>, gamma=<span class="num">4</span>,
+    min_child_weight=<span class="num">6</span>, subsample=<span class="num">0.8</span>,
+    objective=<span class="str">'binary:logistic'</span>,
+    eval_metric=<span class="str">'logloss'</span>
+)
+<span class="var">num_round</span> = <span class="num">500</span>
+<span class="var">early_stopping_rounds</span> = <span class="num">12</span></code></div>
+          </div>
+        </div>
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num">[ 4 ]</span>
+            <span class="cell-title">Cargar datos → DMatrix</span>
+            <span class="tag tag-train">Entrenamiento</span>
+          </div>
+          <div class="cell-body">
+            <div class="cell-desc"><code>DMatrix</code> es el formato nativo de XGBoost para datos. Se construye desde NumPy arrays. La primera columna del CSV es el label; el resto son las 500 features (índices de palabras paddeados).</div>
+            <div class="cell-analogy">
+              <span class="cell-analogy-label">joblib ↔</span>
+              <p>Como <code>X_train, y_train = df.iloc[:,1:], df.iloc[:,0]</code> antes de llamar a <code>model.fit(X_train, y_train)</code>.</p>
+            </div>
+            <div class="code-block"><code><span class="var">df_train</span> = <span class="var">pd</span>.<span class="fn">read_csv</span>(<span class="var">inputs</span>[<span class="str">'train'</span>], header=<span class="kw">None</span>)
+<span class="var">X_train</span>, <span class="var">y_train</span> = <span class="var">df_train</span>.iloc[:, <span class="num">1</span>:].values, <span class="var">df_train</span>.iloc[:, <span class="num">0</span>].values
+
+<span class="var">dtrain</span> = <span class="var">xgb</span>.<span class="fn">DMatrix</span>(<span class="var">X_train</span>, label=<span class="var">y_train</span>)
+<span class="var">dval</span>   = <span class="var">xgb</span>.<span class="fn">DMatrix</span>(<span class="var">X_val</span>,   label=<span class="var">y_val</span>)</code></div>
+          </div>
+        </div>
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num">[ 5 ]</span>
+            <span class="cell-title">Entrenamiento + guardado del modelo</span>
+            <span class="tag tag-train">Entrenamiento</span>
+          </div>
+          <div class="cell-body">
+            <div class="cell-desc"><code>xgb.train()</code> entrena con early stopping: si el <code>logloss</code> de validación no mejora en 12 rondas, para. Al terminar, guarda el modelo en disco con <code>save_model()</code>.</div>
+            <div class="cell-analogy">
+              <span class="cell-analogy-label">joblib ↔</span>
+              <p><code>model.fit(X_train, y_train)</code> + <code>joblib.dump(model, 'model.pkl')</code>. Misma idea: entrenar y serializar.</p>
+            </div>
+            <div class="code-block"><code><span class="var">model</span> = <span class="var">xgb</span>.<span class="fn">train</span>(
+    <span class="var">hyperparams</span>, <span class="var">dtrain</span>,
+    num_boost_round=<span class="num">500</span>,
+    evals=[(<span class="var">dtrain</span>, <span class="str">'train'</span>), (<span class="var">dval</span>, <span class="str">'validation'</span>)],
+    early_stopping_rounds=<span class="num">12</span>,
+    verbose_eval=<span class="num">50</span>
+)
+<span class="var">model</span>.<span class="fn">save_model</span>(<span class="str">'/home/ec2-user/output/xgboost-model'</span>)
+<span class="cm"># equivale a: joblib.dump(model, 'model.pkl')</span></code></div>
+          </div>
+        </div>
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num">[ 6 ]</span>
+            <span class="cell-title">Empaquetar modelo y subir a S3</span>
+            <span class="tag tag-deploy">Deploy</span>
+          </div>
+          <div class="cell-body">
+            <div class="cell-desc">SageMaker requiere el modelo como <code>model.tar.gz</code> en S3. Se empaqueta el archivo binario del modelo en un tar comprimido y se sube al bucket. El archivo dentro del tar debe llamarse <code>xgboost-model</code> (nombre que espera el container XGBoost).</div>
+            <div class="cell-analogy">
+              <span class="cell-analogy-label">GH Actions ↔</span>
+              <p>Como el step <code>upload-artifact</code> que sube el <code>.pkl</code> al registry de artefactos para que el job de deploy lo descargue.</p>
+            </div>
+            <div class="code-block"><code><span class="kw">import</span> <span class="var">tarfile</span>
+<span class="kw">with</span> <span class="var">tarfile</span>.<span class="fn">open</span>(<span class="str">'model.tar.gz'</span>, <span class="str">'w:gz'</span>) <span class="kw">as</span> <span class="var">t</span>:
+    <span class="var">t</span>.<span class="fn">add</span>(<span class="var">model_path</span>, arcname=<span class="str">'xgboost-model'</span>)
+
+<span class="var">s3_model_uri</span> = <span class="var">session</span>.<span class="fn">upload_data</span>(
+    <span class="str">'model.tar.gz'</span>, bucket=<span class="str">'mlops-mi-clasificador-664418991493'</span>,
+    key_prefix=<span class="str">'clasificador_sentimiento/model'</span>
+)</code></div>
+          </div>
+        </div>
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num">[ 7 ]</span>
+            <span class="cell-title">Crear Model y desplegar endpoint serverless</span>
+            <span class="tag tag-deploy">Deploy</span>
+          </div>
+          <div class="cell-body">
+            <div class="cell-desc"><code>sagemaker.model.Model</code> con el <code>image_uri</code> del container XGBoost built-in (no script mode — no sube código extra). <code>.deploy()</code> crea el endpoint serverless: factura por invocación, escala a 0 cuando no se usa.</div>
+            <div class="cell-analogy">
+              <span class="cell-analogy-label">FastAPI ↔</span>
+              <p>Como hacer <code>uvicorn main:app --host 0.0.0.0</code> pero en la nube: SageMaker levanta un servidor HTTP con el modelo cargado, listo para recibir peticiones CSV.</p>
+            </div>
+            <div class="code-block"><code><span class="var">xgb_model</span> = <span class="fn">Model</span>(
+    image_uri=<span class="fn">retrieve</span>(<span class="str">'xgboost'</span>, <span class="var">region</span>, version=<span class="str">'1.7-1'</span>),
+    model_data=<span class="var">s3_model_uri</span>,  <span class="cm"># s3://bucket/model.tar.gz</span>
+    role=<span class="var">role</span>,
+    sagemaker_session=<span class="var">session</span>,
+)
+<span class="var">xgb_predictor</span> = <span class="var">xgb_model</span>.<span class="fn">deploy</span>(
+    endpoint_name=<span class="str">'mi-primer-endpoint-serverless'</span>,
+    serverless_inference_config=<span class="var">serverless_config</span>,  <span class="cm"># 1024 MB, max 5 concurrentes</span>
+    serializer=<span class="fn">CSVSerializer</span>(),
+)
+<span class="cm"># → endpoint InService en SageMaker Console</span></code></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- NOTEBOOK 3 -->
+    <div class="section" id="nb3">
+      <div class="section-header">
+        <div class="section-num" style="background:var(--amber)">3</div>
+        <div>
+          <h2>Inferencia y evaluación</h2>
+          <span class="nb-path">3 - Inferencia y evaluación.ipynb</span>
+        </div>
+      </div>
+
+      <div class="callout callout-ok">
+        <span class="callout-icon">✓</span>
+        <span><strong>Prerequisito:</strong> El endpoint <code>mi-primer-endpoint-serverless</code> debe estar en estado <code>InService</code> en SageMaker Console antes de correr este notebook.</span>
+      </div>
+
+      <div class="cell-list">
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num">[ 1 ]</span>
+            <span class="cell-title">Cargar datos de test</span>
+            <span class="tag tag-data">Datos</span>
+          </div>
+          <div class="cell-body">
+            <div class="cell-desc">Lee el CSV de test (5.000 muestras). Separa la columna 0 (label real) del resto (500 features). Selecciona las primeras 50 muestras para la demo.</div>
+            <div class="code-block"><code><span class="var">df_test</span> = <span class="var">pd</span>.<span class="fn">read_csv</span>(<span class="str">'/home/ec2-user/SageMaker/data/pd/test/test.csv'</span>, header=<span class="kw">None</span>)
+<span class="var">df_y_test</span> = <span class="var">df_test</span>[<span class="num">0</span>]                         <span class="cm"># labels reales</span>
+<span class="var">df_x_test</span> = <span class="var">df_test</span>.loc[:, <span class="var">df_test</span>.columns != <span class="num">0</span>]  <span class="cm"># features</span>
+<span class="var">records_to_predict</span> = <span class="var">df_x_test</span>[:<span class="num">50</span>]</code></div>
+          </div>
+        </div>
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num">[ 2 ]</span>
+            <span class="cell-title">Serializar payload como CSV</span>
+            <span class="tag tag-eval">Inferencia</span>
+          </div>
+          <div class="cell-body">
+            <div class="cell-desc">El endpoint espera el cuerpo de la petición HTTP como texto CSV. Se convierte el DataFrame a string CSV en memoria con <code>StringIO</code>.</div>
+            <div class="cell-analogy">
+              <span class="cell-analogy-label">FastAPI ↔</span>
+              <p>Como serializar el body de la petición: <code>json.dumps({"features": X.tolist()})</code> antes de <code>requests.post(url, data=body)</code>.</p>
+            </div>
+            <div class="code-block"><code><span class="kw">from</span> <span class="var">io</span> <span class="kw">import</span> <span class="fn">StringIO</span>
+<span class="var">csv_file</span> = <span class="fn">StringIO</span>()
+<span class="var">records_to_predict</span>.<span class="fn">to_csv</span>(<span class="var">csv_file</span>, sep=<span class="str">","</span>, header=<span class="kw">False</span>, index=<span class="kw">False</span>)
+<span class="var">payload_as_csv</span> = <span class="var">csv_file</span>.<span class="fn">getvalue</span>()  <span class="cm"># string "1,2,3,...\n4,5,6,...\n"</span></code></div>
+          </div>
+        </div>
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num">[ 3 ]</span>
+            <span class="cell-title">Llamar al endpoint con Predictor</span>
+            <span class="tag tag-eval">Inferencia</span>
+          </div>
+          <div class="cell-body">
+            <div class="cell-desc"><code>Predictor</code> es el cliente del endpoint. <code>.predict()</code> envía una petición HTTP POST al endpoint serverless con el CSV y recibe las probabilidades de sentimiento positivo separadas por <code>\n</code>.</div>
+            <div class="cell-analogy">
+              <span class="cell-analogy-label">FastAPI ↔</span>
+              <p>Equivale exactamente a: <code>resp = requests.post("https://endpoint-url/invocations", data=payload_as_csv, headers={"Content-Type": "text/csv"})</code></p>
+            </div>
+            <div class="code-block"><code><span class="var">predictor</span> = <span class="fn">Predictor</span>(
+    endpoint_name=<span class="str">"mi-primer-endpoint-serverless"</span>,
+    sagemaker_session=<span class="var">sagemaker</span>.<span class="fn">Session</span>(),
+    serializer=<span class="fn">CSVSerializer</span>()
+)
+<span class="cm"># petición HTTP → respuesta: "0.45\n0.62\n0.38\n..."</span>
+<span class="var">predicc_res</span> = <span class="var">predictor</span>.<span class="fn">predict</span>(<span class="var">payload_as_csv</span>).<span class="fn">decode</span>(<span class="str">'utf-8'</span>)</code></div>
+          </div>
+        </div>
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num">[ 4 ]</span>
+            <span class="cell-title">Parsear respuesta → predicciones binarias</span>
+            <span class="tag tag-eval">Evaluación</span>
+          </div>
+          <div class="cell-body">
+            <div class="cell-desc">El endpoint devuelve probabilidades separadas por <code>\n</code> (no comas). Se parsea, convierte a float y se redondea: &ge;0.5 → positivo (1), &lt;0.5 → negativo (0).</div>
+            <div class="code-block"><code><span class="var">vals</span> = <span class="var">predicc_res</span>.<span class="fn">strip</span>().<span class="fn">split</span>(<span class="str">'\n'</span>)  <span class="cm"># ojo: \n no coma</span>
+<span class="var">predicciones</span> = [<span class="fn">round</span>(<span class="fn">float</span>(<span class="var">n</span>)) <span class="kw">for</span> <span class="var">n</span> <span class="kw">in</span> <span class="var">vals</span>]
+<span class="cm"># [0, 1, 1, 0, 1, ...]</span></code></div>
+          </div>
+        </div>
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num">[ 5 ]</span>
+            <span class="cell-title">Accuracy y matriz de confusión</span>
+            <span class="tag tag-eval">Evaluación</span>
+          </div>
+          <div class="cell-body">
+            <div class="cell-desc">Compara predicciones con los labels reales. <code>accuracy_score</code> da el porcentaje de aciertos. La matriz de confusión muestra True Negatives, False Positives, False Negatives y True Positives.</div>
+            <div class="cell-analogy">
+              <span class="cell-analogy-label">GH Actions ↔</span>
+              <p>Como el step final de un CI: correr tests y fallar el workflow si la métrica no supera un threshold. En CI se haría: <code>assert accuracy > 0.80</code>.</p>
+            </div>
+            <div class="code-block"><code><span class="var">accuracy_score</span>(<span class="var">df_y_test</span>[:<span class="var">num_predicciones</span>], <span class="var">predicciones</span>)
+
+<span class="var">cm</span> = <span class="var">confusion_matrix</span>(<span class="var">df_y_test</span>[:<span class="var">num_predicciones</span>], <span class="var">predicciones</span>)
+<span class="cm"># cm[0,0]=TN  cm[0,1]=FP</span>
+<span class="cm"># cm[1,0]=FN  cm[1,1]=TP</span>
+<span class="var">sns</span>.<span class="fn">heatmap</span>(<span class="var">cm</span>, annot=<span class="kw">True</span>, fmt=<span class="str">'g'</span>, xticklabels=[<span class="str">'Neg'</span>,<span class="str">'Pos'</span>], yticklabels=[<span class="str">'Neg'</span>,<span class="str">'Pos'</span>])</code></div>
+          </div>
+        </div>
+
+        <div class="cell-card">
+          <div class="cell-header">
+            <span class="cell-num">[ 6 ]</span>
+            <span class="cell-title">Limpiar: borrar endpoints, configs y modelos</span>
+            <span class="tag tag-setup">Cleanup</span>
+          </div>
+          <div class="cell-body">
+            <div class="cell-desc">Importante en labs: borrar los recursos para no incurrir en costes. El endpoint serverless factura por invocación pero la config y el modelo registrado ocupan espacio. Se borran en orden: endpoint → endpoint config → modelo.</div>
+            <div class="cell-analogy">
+              <span class="cell-analogy-label">GH Actions ↔</span>
+              <p>Como el bloque <code>always:</code> al final de un job que limpia recursos temporales creados durante el workflow.</p>
+            </div>
+            <div class="code-block"><code><span class="cm"># orden importante: primero endpoint, luego config, luego modelo</span>
+<span class="var">sagemaker_bt3</span>.<span class="fn">delete_endpoint</span>(EndpointName=<span class="var">endpoint</span>)
+<span class="var">sagemaker_bt3</span>.<span class="fn">delete_endpoint_config</span>(EndpointConfigName=<span class="var">endpoint_conf</span>)
+<span class="var">sagemaker_bt3</span>.<span class="fn">delete_model</span>(ModelName=<span class="var">model</span>)</code></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- RESUMEN FINAL -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-num" style="background:var(--purple)">✓</div>
+        <h2>Resumen: qué hace cada herramienta</h2>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="cmp-table">
+          <thead>
+            <tr><th>Herramienta</th><th>En este lab</th><th>Equivale a</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="cmp-tool">sagemaker.Session</span></td><td>Cliente central para subir datos, registrar modelos y crear endpoints</td><td>Cliente boto3 + HTTP client combinado</td></tr>
+            <tr><td><span class="cmp-tool">xgb.DMatrix</span></td><td>Formato de datos optimizado para XGBoost</td><td><code>np.array</code> con metadatos de labels</td></tr>
+            <tr><td><span class="cmp-tool">xgb.train()</span></td><td>Entrenamiento con early stopping y eval en validación</td><td><code>model.fit(X, y)</code> de sklearn</td></tr>
+            <tr><td><span class="cmp-tool">model.save_model()</span></td><td>Serializa el modelo a disco en formato binario</td><td><code>joblib.dump(model, 'model.pkl')</code></td></tr>
+            <tr><td><span class="cmp-tool">model.tar.gz en S3</span></td><td>Artefacto del modelo que SageMaker descarga al crear el endpoint</td><td>Imagen Docker con el modelo incluido</td></tr>
+            <tr><td><span class="cmp-tool">sagemaker.model.Model</span></td><td>Registra el modelo en SageMaker apuntando al tar.gz en S3</td><td>Definir el servicio en <code>docker-compose.yml</code></td></tr>
+            <tr><td><span class="cmp-tool">ServerlessInferenceConfig</span></td><td>Configura el endpoint para escalar a 0, pagar por invocación</td><td>AWS Lambda para inferencia ML</td></tr>
+            <tr><td><span class="cmp-tool">Predictor.predict()</span></td><td>Envía petición HTTP POST con CSV al endpoint</td><td><code>requests.post(url, data=csv_payload)</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- DIAGRAMA COMPARATIVO -->
+    <div class="section" id="diagrama-flujos">
+      <div class="section-header">
+        <div class="section-num" style="background:var(--purple)">⟳</div>
+        <h2>Flujo actual vs flujo ideal con SageMaker completo</h2>
+      </div>
+
+      <p style="font-size:14px;color:var(--text-muted);margin-bottom:24px">
+        Todas las cuentas AWS (nuevas, Academy, personales) parten con cuota 0 en instancias de training.
+        En Academy no se puede aumentar. En cuentas personales o empresariales se solicita el aumento
+        en Service Quotas y AWS lo aprueba en 1-3 días. Una vez habilitada, SageMaker delega el training
+        a una instancia dedicada y el notebook solo orquesta — no computa.
+      </p>
+
+      <!-- FLUJO ACTUAL -->
+      <div class="diagram-wrap" style="margin-bottom:32px">
+        <div class="diagram-title" style="color:var(--amber)">Flujo actual — cuota 0 (Academy o cuenta personal sin aumento solicitado)</div>
+        <svg width="100%" viewBox="0 0 720 200" style="max-width:720px;display:block;margin:0 auto">
+          <defs>
+            <marker id="arr1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="var(--text-muted)"/>
+            </marker>
+          </defs>
+
+          <!-- Notebook (hace todo) -->
+          <rect x="10" y="70" width="150" height="60" rx="6" fill="var(--amber-soft)" stroke="var(--amber)" stroke-width="1.5"/>
+          <text x="85" y="95" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="700" fill="var(--amber)">Notebook</text>
+          <text x="85" y="110" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--text-muted)">xgb.train() local</text>
+          <text x="85" y="124" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--text-muted)">⚠ RAM limitada</text>
+
+          <line x1="160" y1="100" x2="198" y2="100" stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arr1)"/>
+
+          <!-- S3 -->
+          <rect x="198" y="70" width="120" height="60" rx="6" fill="var(--surface-raised)" stroke="var(--border)" stroke-width="1.5"/>
+          <text x="258" y="91" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="700" fill="var(--text)">S3</text>
+          <text x="258" y="105" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--text-muted)">datos CSV (nb1)</text>
+          <text x="258" y="119" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--text-muted)">model.tar.gz (nb2)</text>
+
+          <line x1="318" y1="100" x2="356" y2="100" stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arr1)"/>
+
+          <!-- SageMaker Model -->
+          <rect x="356" y="70" width="130" height="60" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+          <text x="421" y="95" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="700" fill="var(--accent)">SageMaker</text>
+          <text x="421" y="110" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--text-muted)">Model + Endpoint</text>
+          <text x="421" y="124" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--text-muted)">Serverless ✓</text>
+
+          <line x1="486" y1="100" x2="524" y2="100" stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arr1)"/>
+
+          <!-- App -->
+          <rect x="524" y="70" width="120" height="60" rx="6" fill="var(--green-soft)" stroke="var(--green)" stroke-width="1.5"/>
+          <text x="584" y="95" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="700" fill="var(--green)">Aplicación</text>
+          <text x="584" y="110" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--text-muted)">predictor.predict()</text>
+          <text x="584" y="124" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--text-muted)">CSV → 0/1</text>
+
+          <!-- Label bottom -->
+          <text x="85" y="158" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--amber)">Training en notebook</text>
+          <text x="258" y="158" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--text-muted)">Almacenamiento</text>
+          <text x="421" y="158" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--accent)">Deploy</text>
+          <text x="584" y="158" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--green)">Inferencia</text>
+        </svg>
+      </div>
+
+      <!-- FLUJO IDEAL -->
+      <div class="diagram-wrap">
+        <div class="diagram-title" style="color:var(--green)">Flujo ideal — con cuota habilitada (cuenta personal o empresarial tras solicitar aumento)</div>
+        <svg width="100%" viewBox="0 0 720 240" style="max-width:720px;display:block;margin:0 auto">
+          <defs>
+            <marker id="arr2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="var(--text-muted)"/>
+            </marker>
+          </defs>
+
+          <!-- Notebook -->
+          <rect x="10" y="90" width="120" height="60" rx="6" fill="var(--surface-raised)" stroke="var(--border)" stroke-width="1.5"/>
+          <text x="70" y="115" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="700" fill="var(--text)">Notebook</text>
+          <text x="70" y="130" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--text-muted)">solo orquesta</text>
+          <text x="70" y="144" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--green)">✓ puede cerrarse</text>
+
+          <line x1="130" y1="120" x2="168" y2="120" stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arr2)"/>
+
+          <!-- S3 -->
+          <rect x="168" y="90" width="110" height="60" rx="6" fill="var(--surface-raised)" stroke="var(--border)" stroke-width="1.5"/>
+          <text x="223" y="108" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="700" fill="var(--text)">S3</text>
+          <text x="223" y="122" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--text-muted)">datos CSV</text>
+          <text x="223" y="136" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--text-muted)">código + config</text>
+          <text x="223" y="150" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--text-muted)">model.tar.gz (output)</text>
+
+          <line x1="278" y1="120" x2="316" y2="120" stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arr2)"/>
+
+          <!-- SageMaker Training Job -->
+          <rect x="316" y="60" width="140" height="120" rx="6" fill="var(--green-soft)" stroke="var(--green)" stroke-width="2"/>
+          <text x="386" y="85" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="700" fill="var(--green)">SageMaker</text>
+          <text x="386" y="100" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--green)">Training Job</text>
+          <text x="386" y="118" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--text-muted)">ml.m5.xlarge</text>
+          <text x="386" y="133" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--text-muted)">XGBoost container</text>
+          <text x="386" y="148" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--text-muted)">logs → CloudWatch</text>
+          <text x="386" y="163" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--green)">✓ instancia se apaga sola</text>
+
+          <line x1="456" y1="120" x2="494" y2="120" stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arr2)"/>
+
+          <!-- SageMaker Endpoint -->
+          <rect x="494" y="90" width="120" height="60" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+          <text x="554" y="115" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="700" fill="var(--accent)">SageMaker</text>
+          <text x="554" y="130" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--text-muted)">Serverless Endpoint</text>
+          <text x="554" y="144" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--accent)">escala a 0 ✓</text>
+
+          <line x1="614" y1="120" x2="652" y2="120" stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arr2)"/>
+
+          <!-- App -->
+          <rect x="652" y="90" width="58" height="60" rx="6" fill="var(--purple-soft)" stroke="var(--purple)" stroke-width="1.5"/>
+          <text x="681" y="115" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="700" fill="var(--purple)">App</text>
+          <text x="681" y="130" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--text-muted)">predict</text>
+          <text x="681" y="144" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--purple)">0/1</text>
+
+          <!-- Labels -->
+          <text x="70" y="210" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--text-muted)">Orquestación</text>
+          <text x="223" y="210" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--text-muted)">Almacenamiento</text>
+          <text x="386" y="210" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--green)">Training dedicado</text>
+          <text x="554" y="210" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--accent)">Deploy</text>
+          <text x="681" y="210" text-anchor="middle" font-family="system-ui" font-size="10" fill="var(--purple)">Inferencia</text>
+        </svg>
+      </div>
+
+      <!-- TABLA DIFERENCIAS -->
+      <div style="overflow-x:auto;margin-top:24px">
+        <table class="cmp-table">
+          <thead><tr><th>Aspecto</th><th style="color:var(--amber)">Actual (cuota 0)</th><th style="color:var(--green)">Ideal (cuota habilitada)</th></tr></thead>
+          <tbody>
+            <tr><td>Training</td><td><code>xgb.train()</code> en el notebook</td><td>SageMaker Estimator en instancia dedicada</td></tr>
+            <tr><td>Notebook abierto durante training</td><td>Sí — horas bloqueado</td><td>No — puedes cerrarlo</td></tr>
+            <tr><td>RAM disponible</td><td>La del notebook (~16 GB)</td><td>La de la instancia (ml.m5.xlarge = 16 GB, xlarge = 64 GB…)</td></tr>
+            <tr><td>Logs y métricas</td><td>Solo en el notebook</td><td>CloudWatch automático, métricas en tiempo real</td></tr>
+            <tr><td>Reproducibilidad</td><td>Manual</td><td>Automática — cada job queda registrado</td></tr>
+            <tr><td>Deploy</td><td>SageMaker Serverless ✓</td><td>SageMaker Serverless ✓ (igual)</td></tr>
+            <tr><td>Costo training</td><td>Pagas instancia notebook todo el tiempo</td><td>Pagas ml.m5.xlarge solo durante training (~mins)</td></tr>
+            <tr><td>Cómo habilitar</td><td>—</td><td>Service Quotas → Amazon SageMaker → <em>ml.m5.xlarge for training job usage</em> → Request quota increase → valor: 1</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div><!-- /diagrama-flujos -->
+
+  </main>
+</div>
+
+<script>
+  // Active nav on scroll
+  const sections = document.querySelectorAll('.section[id], .hero[id]');
+  const navItems = document.querySelectorAll('.nav-item');
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navItems.forEach(n => n.classList.remove('active'));
+        const active = document.querySelector(`.nav-item[href="#${e.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { threshold: 0.3 });
+  sections.forEach(s => obs.observe(s));
+</script>
