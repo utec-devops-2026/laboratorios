@@ -386,6 +386,9 @@ Usaremos **eShopOnWeb**
     - **Restrict deletions** (viene marcado por defecto; impide borrar
       la rama `main`)
     - (Opcional) **Restrict updates** (antes "Lock branch")
+
+<img src="images/ruleset_require_pr.png" width="700"/>
+
 7.  Guarda con **Create**.
 
 > La configuración de **Default branch** no forma parte del ruleset:
