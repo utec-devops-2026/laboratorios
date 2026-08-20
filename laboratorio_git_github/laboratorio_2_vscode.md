@@ -216,19 +216,41 @@ Usaremos **eShopOnWeb**
 2.  En GitHub, ve a **Branches** (pestaña del repo) y verifica que
     exista `dev`.
 
-### Tarea 3: Definir **Branch Protection Rules** (políticas sobre `main`)
+### Tarea 3: Definir un **Ruleset** (políticas sobre `main`)
 
-1.  En GitHub, entra a **Settings** → **Branches** → **Add rule**.
-2.  Configura la regla para `Branch name pattern`: `main`.
-3.  Activa:
+> GitHub reemplazó las clásicas **Branch protection rules** por
+> **Rulesets**. Al entrar a **Settings** → **Branches** verás un banner
+> indicando que **Rulesets** es la forma recomendada actual; úsalo en
+> lugar de "Add rule".
+
+1.  En GitHub, entra a **Settings** → **Rules** → **Rulesets** → **New
+    ruleset** → **New branch ruleset**.
+2.  En **Ruleset Name**, escribe un nombre descriptivo, p. ej. `Protect
+    main`.
+3.  En **Enforcement status**, cambia de **Disabled** (valor por
+    defecto) a **Active**.
+
+    > ⚠️ Si dejas el ruleset en **Disabled**, las reglas no se aplican y
+    > `main` queda sin protección aunque las hayas configurado.
+
+4.  En **Bypass list**, déjala **vacía**. Una bypass list vacía
+    significa que nadie —ni siquiera los administradores— puede
+    saltarse las reglas.
+5.  En **Target branches**, clic en **Add target** → **Include default
+    branch** (o **Include by pattern** y escribe `main`).
+6.  En **Rules**, activa:
     - ✅ **Require a pull request before merging**
-    - ✅ **Require approvals** → **1** (como estás solo, luego te
-      autoapruebas)
-    - (Opcional) **Dismiss stale pull request approvals**
+    - (Opcional) **Require approvals** → **1** (como estás solo, luego
+      te autoapruebas)
+    - (Opcional) **Require status checks to pass**
     - (Opcional) **Require linear history**
-    - (Opcional) **Require status checks to pass** (si deseas, agrega
-      checks de Actions más adelante)
-4.  Guarda con **Create** / **Save changes**.
+    - **Block force pushes** (viene marcado por defecto)
+    - **Restrict deletions** (viene marcado por defecto)
+7.  Guarda con **Create**.
+
+> La configuración de **Default branch** no forma parte del ruleset:
+> sigue estando en **Settings** → **General** → sección **Default
+> branch**.
 
 > GitHub no exige "issue vinculado" de forma nativa. Simularemos el
 > control con una **Issue** y el texto **`Closes #<número>`** en el PR
@@ -302,10 +324,10 @@ Usaremos **eShopOnWeb**
 ## (Opcional) Ejercicio 6: Quitar temporalmente la protección de `main`
 
 Si vas a continuar con otros labs que requieren commits directos a
-`main`: 1. **Settings** → **Branches** → regla de `main` → **Edit**. 2.
-Desactiva **Require a pull request before merging** y **Require
-approvals**.\
-3. **Save changes**.
+`main`: 1. **Settings** → **Rules** → **Rulesets** → abre `Protect
+main`. 2. Cambia **Enforcement status** a **Disabled** (o desactiva
+**Require a pull request before merging**).\
+3. Los cambios se guardan automáticamente.
 
 ---
 
