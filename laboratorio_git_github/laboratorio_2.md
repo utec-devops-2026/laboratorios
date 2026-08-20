@@ -371,7 +371,7 @@ Usaremos **eShopOnWeb**
 5.  En **Target branches**, clic en **Add target** → **Include default
     branch** (o **Include by pattern** y escribe `main`).
 
-<img src="images/badges_chips_menu.png" width="700"/>
+<img src="images/ruleset_target_branches.png" width="700"/>
 
 6.  En **Rules**, activa:
     - ✅ **Require a pull request before merging** (mismas sub-opciones
