@@ -426,7 +426,92 @@ Usaremos **eShopOnWeb**
     git reset --hard HEAD~1
     ```
 
-### Tarea 5: Crear una **Issue**, hacer cambio en y abrir PR siguiendo GitFlow
+### Tarea 5: Crear una plantilla de Pull Request
+
+Con `main` ya protegido por el **Ruleset**, cualquier cambio —incluida
+la plantilla de PR— debe entrar por una rama y un PR.
+
+1.  Actualiza `main` y crea una rama para la plantilla:
+
+    ```bash
+    git checkout main
+    git pull origin main
+    git checkout -b chore/pr-template
+    ```
+
+2.  Crea la carpeta `.github` y el archivo `pull_request_template.md`:
+
+    ```bash
+    mkdir -p .github
+    nano .github/pull_request_template.md
+    # o si tienes VS Code instalado:
+    # code .github/pull_request_template.md
+    ```
+
+3.  Pega el siguiente contenido:
+
+    ````markdown
+    ## Descripción
+
+    <!-- Explica qué cambia este PR, por qué y qué riesgo toca -->
+
+    ## Tipo de cambio
+
+    - [ ] 🐛 Bug fix
+    - [ ] ✨ Nueva funcionalidad
+    - [ ] ♻️ Refactor
+    - [ ] 📝 Documentación
+    - [ ] 🔐 Seguridad
+    - [ ] 🧪 Tests / automatización
+
+    ## Checklist DoD
+
+    ### Alcance funcional
+    - [ ] Los criterios de aceptación / comportamiento esperado están cubiertos
+    - [ ] Validé el flujo afectado localmente
+    - [ ] Si hubo cambio visible para usuario, adjunté evidencia (captura, video o notas)
+
+    ### Código
+    - [ ] El código sigue las convenciones del proyecto
+    - [ ] No dejé código comentado, `console.log` de debug ni artefactos temporales
+    - [ ] Los nombres y mensajes son claros para negocio y equipo técnico
+
+    ### Calidad y tests
+    - [ ] Agregué o actualicé tests para los cambios introducidos
+    - [ ] `npm run test:coverage` pasa con cobertura mínima esperada (≥ 80%) si aplica
+    - [ ] `npm run test:bdd` pasa si el cambio afecta comportamiento E2E / Gherkin
+    - [ ] Cubrí happy path y al menos un caso de error o borde relevante
+
+    ### Seguridad
+    - [ ] No expongo secretos, tokens, contraseñas, PII ni datos sensibles
+    - [ ] Validé inputs, manejo de errores y permisos según corresponda
+    - [ ] Revisé dependencias o configuración nueva por riesgos de seguridad si aplica
+
+    ### Documentación y mantenimiento
+    - [ ] Actualicé documentación, feature files o steps cuando el comportamiento cambió
+    - [ ] El PR está acotado, con contexto suficiente para revisión
+
+    ## Notas para la persona revisora
+
+    <!-- Riesgos, decisiones, cosas a mirar con más atención -->
+    ````
+
+4.  Guarda, añade y commitea:
+
+    ```bash
+    git add .github/pull_request_template.md
+    git commit -m "chore: add PR template"
+    git push -u origin chore/pr-template
+    ```
+
+5.  En GitHub, crea el PR contra `main` (banner "Compare & pull
+    request"), **Approve** y **Merge**.
+
+6.  Verifica que funcionó: al abrir un **nuevo PR** contra `main` (lo
+    harás en la siguiente tarea), la descripción vendrá **precargada**
+    con esta plantilla.
+
+### Tarea 6: Crear una **Issue**, hacer cambio en y abrir PR siguiendo GitFlow
 
 1.  En GitHub, pestaña **Issues** → **New issue**.
     - **Title:** `Testing my first PR`\
@@ -602,7 +687,8 @@ git push origin --delete feature/new-feature-1 # eliminar rama remota
       selectivo**).
 - [ ] Historial revisado con comandos Git y en GitHub.
 - [ ] Rama `feature/new-feature-1` creada, publicada y PR creado.
-- [ ] **Branch protection** en `main` con **1 aprobación** requerida.
+- [ ] **Ruleset** en `main` (Active, bypass list vacía) con **1 aprobación** requerida.
+- [ ] Plantilla de PR (`.github/pull_request_template.md`) creada, mergeada a `main` y visible al abrir un PR.
 - [ ] PR aprobado, merge realizado y rama `feature/new-feature-1` eliminada.
 - [ ] **Tag** `v1.1.0-beta` y **release** publicado.
 
@@ -628,8 +714,6 @@ git push origin --delete feature/new-feature-1 # eliminar rama remota
 
 - **Codeowners**: añade `CODEOWNERS` para requerir aprobaciones de
   equipos/usuarios específicos.
-- **Plantilla de PR**: agrega `.github/pull_request_template.md` con
-  una casilla "Issue: Closes #...".
 - **Checks**: integra **GitHub Actions** (linting/tests) y marca
   **Required status checks** en la regla de branch.
 

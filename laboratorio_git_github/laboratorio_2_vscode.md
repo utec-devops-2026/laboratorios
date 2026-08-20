@@ -271,7 +271,77 @@ Usaremos **eShopOnWeb**
 
 4.  Observa el **bloqueo** y cancela.
 
-### Tarea 5: Crear una **Issue**, hacer cambio en `dev` y abrir PR
+### Tarea 5: Crear una plantilla de Pull Request
+
+Con `main` ya protegido por el **Ruleset**, cualquier cambio —incluida
+la plantilla de PR— debe entrar por una rama y un PR.
+
+1.  En VS Code (barra inferior), haz clic en `main` → **Create new
+    branch...** → nombre `chore/pr-template`.
+
+2.  En el Explorador, crea la carpeta `.github` y dentro el archivo
+    `pull_request_template.md`.
+
+3.  Pega el siguiente contenido y guarda (`Ctrl+S`):
+
+    ````markdown
+    ## Descripción
+
+    <!-- Explica qué cambia este PR, por qué y qué riesgo toca -->
+
+    ## Tipo de cambio
+
+    - [ ] 🐛 Bug fix
+    - [ ] ✨ Nueva funcionalidad
+    - [ ] ♻️ Refactor
+    - [ ] 📝 Documentación
+    - [ ] 🔐 Seguridad
+    - [ ] 🧪 Tests / automatización
+
+    ## Checklist DoD
+
+    ### Alcance funcional
+    - [ ] Los criterios de aceptación / comportamiento esperado están cubiertos
+    - [ ] Validé el flujo afectado localmente
+    - [ ] Si hubo cambio visible para usuario, adjunté evidencia (captura, video o notas)
+
+    ### Código
+    - [ ] El código sigue las convenciones del proyecto
+    - [ ] No dejé código comentado, `console.log` de debug ni artefactos temporales
+    - [ ] Los nombres y mensajes son claros para negocio y equipo técnico
+
+    ### Calidad y tests
+    - [ ] Agregué o actualicé tests para los cambios introducidos
+    - [ ] `npm run test:coverage` pasa con cobertura mínima esperada (≥ 80%) si aplica
+    - [ ] `npm run test:bdd` pasa si el cambio afecta comportamiento E2E / Gherkin
+    - [ ] Cubrí happy path y al menos un caso de error o borde relevante
+
+    ### Seguridad
+    - [ ] No expongo secretos, tokens, contraseñas, PII ni datos sensibles
+    - [ ] Validé inputs, manejo de errores y permisos según corresponda
+    - [ ] Revisé dependencias o configuración nueva por riesgos de seguridad si aplica
+
+    ### Documentación y mantenimiento
+    - [ ] Actualicé documentación, feature files o steps cuando el comportamiento cambió
+    - [ ] El PR está acotado, con contexto suficiente para revisión
+
+    ## Notas para la persona revisora
+
+    <!-- Riesgos, decisiones, cosas a mirar con más atención -->
+    ````
+
+4.  En **Source Control**, stage y commit: `chore: add PR template`.
+
+5.  **Publish Branch** para subir `chore/pr-template` a GitHub.
+
+6.  En GitHub, crea el PR contra `main` (banner "Compare & pull
+    request"), **Approve** y **Merge**.
+
+7.  Verifica que funcionó: al abrir un **nuevo PR** contra `main` (lo
+    harás en la siguiente tarea), la descripción vendrá **precargada**
+    con esta plantilla.
+
+### Tarea 6: Crear una **Issue**, hacer cambio en `dev` y abrir PR
 
 1.  En GitHub, pestaña **Issues** → **New issue**.
     - **Title:** `Testing my first PR`\
@@ -365,7 +435,8 @@ git push origin v1.1.0-beta
       selectivo**).
 - [ ] Historial revisado en GitHub.
 - [ ] Rama `dev` creada, publicada y PR creado.
-- [ ] **Branch protection** en `main` con **1 aprobación** requerida.
+- [ ] **Ruleset** en `main` (Active, bypass list vacía) con **1 aprobación** requerida.
+- [ ] Plantilla de PR (`.github/pull_request_template.md`) creada, mergeada a `main` y visible al abrir un PR.
 - [ ] PR aprobado, merge realizado y rama `dev` eliminada.
 - [ ] **Tag** `v1.1.0-beta` y **release** publicado.
 
@@ -377,8 +448,6 @@ git push origin v1.1.0-beta
   gestionar PRs/Issues desde el editor.
 - **Codeowners**: añade `CODEOWNERS` para requerir aprobaciones de
   equipos/usuarios específicos.
-- **Plantilla de PR**: agrega `.github/pull_request_template.md` con
-  una casilla "Issue: Closes #...".
 - **Checks**: integra **GitHub Actions** (linting/tests) y marca
   **Required status checks** en la regla de branch.
 
