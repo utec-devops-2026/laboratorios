@@ -140,10 +140,22 @@ LaunchDarkly nos proporciona todas estas capacidades profesionales.
    - **Name**: TBD Feature Flags Lab
    - **Key**: tbd-feature-flags-lab (auto-generado)
 
-3. Obtén las claves SDK:
-   - Ve a **Account Settings** → **Projects** → **TBD Feature Flags Lab**
-   - Copia el **SDK Key** del entorno **Test**
-   - Copia el **Client-side ID** del entorno **Test**
+3. Verifica los entornos del proyecto. Cada proyecto trae dos entornos por defecto: **Production** y **Test**. En este lab usaremos **Test**:
+
+   - Ve a **Project settings** (⚙️) → **Environments**
+
+   <img src="images/ld_06.png" width="700"/>
+
+4. Obtén las claves SDK:
+
+   - Ve a **Organization settings** (⚙️) → **SDK keys**
+   - Selecciona tu proyecto y el entorno **Test**
+   - Copia el **SDK Key** (sección *SDK keys* → **Default SDK Key**, ícono de copiar) — es la clave del backend
+   - Copia el **Client-side ID** (sección *Client-side IDs*) — se usará en el frontend (Ejercicio 3)
+
+   <img src="images/ld_07.png" width="700"/>
+
+   > ⚠️ **Importante:** el SDK Key real tiene formato `sdk-` + UUID (~40 caracteres), por ejemplo `sdk-12345678-abcd-1234-abcd-123456789012`. Si usas un valor corto de ejemplo, obtendrás `error 401 (invalid SDK key)`. No confundas el **SDK Key** (backend) con el **Client-side ID** (frontend).
 
 ### Tarea 2: Configurar servidor Node.js con feature flags
 
@@ -174,12 +186,11 @@ npm i dotenv
    cp .env.example .env
    ```
 
-4. Edita el archivo `.env` con tus claves de LaunchDarkly:
+4. Edita el archivo `.env` con tu clave de LaunchDarkly (el **SDK Key** del entorno **Test** copiado en la Tarea 1):
 
    ```bash
-   # Backend SDK Key
-   LD_SDK_KEY='sdk-7383abc'
-   LD_EVENT_KEY='68abc'
+   # Backend SDK Key (formato real: sdk- + UUID, ~40 caracteres)
+   LD_SDK_KEY='sdk-12345678-abcd-1234-abcd-123456789012'
    ```
 
 5. Inicia el servidor:
@@ -188,11 +199,15 @@ npm i dotenv
    node server.mjs
    ```
 
+   Deberías ver en consola `SDK successfully initialized!`. Si en cambio ves `error 401 (invalid SDK key)`, revisa que copiaste el SDK Key real y no un placeholder.
+
    Accede a [http://localhost:3000](http://localhost:3000) para verificar que funciona.
 
 ### Tarea 3: Crear tu primer feature flag
 
-1. En tu dashboard de LaunchDarkly, ve a **release → Feature flags** → **Create flag**:
+1. En tu dashboard de LaunchDarkly, ve a **Features → Flags** (menú lateral) → **Create flag**:
+
+   <img src="images/ld_01.png" width="700"/>
 
    - **Name**: New Menu Features
    - **Key**: `feat-new-menu`
@@ -200,12 +215,18 @@ npm i dotenv
    - **Description**: "Activa nuevos features de menú en el servidor"
    - **Tags**: `backend`, `menu`, `experiment`
 
-2. Configura las variaciones:
+2. Configura las variaciones (**Variations**: Boolean):
 
    - **True**: Mostrar nuevo menú
    - **False**: Mantener menú original
 
+   Nota que abajo dice: *Serve **false** when the flag is off, and **true** when the flag is on*.
+
+   <img src="images/ld_02.png" width="700"/>
+
 3. **Activa el flag** en el entorno **Test** pero **déjalo en false** inicialmente.
+
+   > El banner *"This flag isn't in your code yet"* es normal: desaparecerá cuando el servidor evalúe el flag por primera vez.
 
 4. Realiza tu primer commit con TBD:
 
@@ -252,9 +273,6 @@ npm i dotenv
      console.log("SDK successfully initialized!");
 
      app.get("/", async (req, res) => {
-       // Tracking de eventos
-       client.track(process.env.LD_EVENT_KEY, context);
-
        // Evaluación del feature flag
        client.variation(
          "feat-new-menu",
@@ -290,6 +308,10 @@ npm i dotenv
    - **Targeting**: ON
    - **Default rule**: Serve **true**
    - **Save changes**
+
+   Así debe quedar la configuración de targeting en el entorno **Test**:
+
+   <img src="images/ld_03.png" width="700"/>
 
 3. Refresca la página:
 
@@ -543,7 +565,11 @@ git commit -m "test(experiment): record experiment results"
 ## Solución de problemas frecuentes
 
 - **"No puedo hacer push a main"**: En TBD, main está protegido — crea una rama feature con `git checkout -b feat/nombre` y abre un PR
-- **"LaunchDarkly no conecta"**: Verifica SDK keys en archivo .env
+- **"LaunchDarkly no conecta" / `error 401 (invalid SDK key)`**: Verifica el SDK key en `.env` — debe ser la clave real (`sdk-` + UUID, ~40 caracteres) del entorno **Test**, no un valor de ejemplo
+- **"No se puede acceder a este sitio" / `ERR_CONNECTION_REFUSED` en localhost:3000**: El servidor no está corriendo — ejecuta `node server.mjs` y espera el mensaje `SDK successfully initialized!` antes de abrir el navegador (si el SDK key es inválido, el server nunca levanta el listener)
+
+  <img src="images/ld_04.png" width="600"/>
+
 - **"Feature flag no funciona"**: Verifica que el flag esté activado en LaunchDarkly
 - **"Conventional commit inválido"**: Revisa el formato: `type(scope): description`
 - **"Merge conflicts"**: Sincroniza más frecuentemente con `git pull origin main`
