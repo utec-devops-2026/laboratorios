@@ -1,198 +1,337 @@
-# Laboratorio: Vibe Coding, Pruebas Unitarias y Mocking en Python
+# Laboratorio: Creando tus propios Skills en Claude Code
 
 **Duración estimada:** 30–45 min  
 **Nivel:** Intermedio  
-**Objetivo:** Realizar pruebas unitarias a través de asistente IA Copilot
+**Objetivo:** Aprender a crear, instalar y mejorar skills personalizados para Claude Code
 
 ---
-## Prerrequisito:
-- Realizar un fork de: https://github.com/wils0n/lab-github-copilot-unit-test/tree/main
-- Copiar los archivos Calculadora.py, math_utils.py, weather_service.py de a este repositorio desde https://github.com/wils0n/laboratorios-md/tree/main/laboratorio_AI_assistants/files
 
+## Objetivos de aprendizaje
 
-## Ejercicio 1: Configuración global de tests con #codebase /setupTests
+Al finalizar, podrás:
 
-Las anotaciones como `#codebase /setupTests` se utilizan para indicar archivos o bloques de código que preparan el entorno de pruebas, por ejemplo, Te preguntará si deseas utilizar pytest o unittest:
+- Explicar qué es un **skill** y cuándo conviene crearlo.
+- Crear la estructura de un skill en `~/.claude/skills/`.
+- Escribir un **frontmatter** con una descripción efectiva que active el skill correctamente.
+- Redactar instrucciones con formato de output, reglas y ejemplos.
+- Probar un skill por **invocación directa** y **lenguaje natural**.
+- Diagnosticar y corregir problemas comunes: *undertriggering*, *format drift* y *scope creep*.
+- Portar el skill a **GitHub Copilot** como custom agent en la carpeta `agents`.
 
-```python
-Elegiremos pytest
+---
+
+## ¿Qué es un Skill?
+
+Un skill es un archivo markdown (`SKILL.md`) que se carga automáticamente en el contexto de Claude Code cuando lo necesitas. Contiene frontmatter YAML con metadatos y las instrucciones que el agente debe seguir.
+
+**Estructura básica de un skill:**
+
+```
+~/.claude/skills/
+└── nombre-del-skill/
+    └── SKILL.md
+```
+
+**Anatomía del archivo SKILL.md:**
+
+```markdown
+---
+name: nombre-del-skill
+description: Descripción clara que define cuándo se activa este skill
+---
+
+## Instrucciones
+
+Aquí van las instrucciones para el agente...
 ```
 
 ---
 
-## Ejercicio 2: Generar Pruebas unitarias de una calculadora con #codebase /test
+## ¿Cuándo usar un Skill?
 
-Si abrimos el archivo Calculator.py y en el prompt usas `#codebase /test`, generará los unit test para el archivo activo. Por ejemplo, para una calculadora te generará algo como:
+**Buenos candidatos para un skill:**
+- Mensajes de commit con formato consistente
+- Descripciones de Pull Requests
+- Code reviews estandarizados
+- Entradas de changelog
 
-```python
-# #codebase /test
-import pytest
-from calculator import add, subtract, multiply, divide, power, factorial
+**Malos candidatos para un skill:**
+- Solicitudes abiertas como "ayúdame a pensar esto"
+- Tareas que requieren mucho contexto variable
 
-def test_add():
-	assert add(2, 3) == 5
+---
 
-def test_subtract():
-	assert subtract(5, 2) == 3
+## Ejercicio 1: Crear la estructura del skill
 
-def test_multiply():
-	assert multiply(2, 4) == 8
+Crea el directorio e instala tu primer skill:
 
-def test_divide():
-	assert divide(10, 2) == 5
-	with pytest.raises(ValueError):
-		divide(5, 0)
-
-def test_power():
-	assert power(2, 3) == 8
-
-def test_factorial():
-	assert factorial(5) == 120
-	assert factorial(0) == 1
-	with pytest.raises(ValueError):
-		factorial(-1)
+```bash
+mkdir -p ~/.claude/skills/commit-message-writer
+touch ~/.claude/skills/commit-message-writer/SKILL.md
 ```
 
 ---
 
-## Ejercicio 3: Generando tests para funciones matemáticas en math_utils.py
+## Ejercicio 2: Escribir el frontmatter y la descripción
 
-Abrir el archivo `math_utils.py`:
+El campo `description` es **crítico**: el agente decide si cargar o no el skill basándose únicamente en este campo.
 
-```python
-def generate_fibonacci(n):
-	"""Generates a list of the first n Fibonacci numbers."""
-	if n < 0:
-		raise ValueError("Input must be a non-negative integer.")
-	fib_sequence = []
-	a, b = 0, 1
-	for _ in range(n):
-		fib_sequence.append(a)
-		a, b = b, a + b
-	return fib_sequence
-
-def factorial(n):
-	"""Calculates the factorial of a number."""
-	if n < 0:
-		raise ValueError("Factorial is not defined for negative numbers.")
-	result = 1
-	for i in range(1, n + 1):
-		result *= i
-	return result
+**Descripción débil (evitar):**
+```yaml
+---
+name: commit-message-writer
+description: Genera mensajes de commit
+---
 ```
 
-Para generar pruebas unitarias para estas funciones, puedes usar el siguiente prompt:
-
-> Genera casos de prueba unitarios para math_utils.py
-
-Y el resultado esperado sería:
-
-```python
-import pytest
-from math_utils import generate_fibonacci, factorial
-
-def test_generate_fibonacci():
-	assert generate_fibonacci(0) == []
-	assert generate_fibonacci(1) == [0]
-	assert generate_fibonacci(5) == [0, 1, 1, 2, 3]
-	assert generate_fibonacci(7) == [0, 1, 1, 2, 3, 5, 8]
-	with pytest.raises(ValueError):
-		generate_fibonacci(-1)
-
-def test_factorial():
-	assert factorial(0) == 1
-	assert factorial(1) == 1
-	assert factorial(5) == 120
-	with pytest.raises(ValueError):
-		factorial(-3)
+**Descripción efectiva (usar):**
+```yaml
+---
+name: commit-message-writer
+description: >
+  Genera mensajes de commit con formato Conventional Commits.
+  Úsame cuando quieras escribir un commit, hacer commit de tus cambios,
+  o resumir tu diff staged. Produce una línea de asunto, cuerpo opcional
+  y footer. Se activa con frases como "escribe un mensaje de commit",
+  "commitea mis cambios" o "resume mi diff staged".
+---
 ```
 
-Puedes modificar o ampliar los tests para cubrir más casos según lo necesites.
+**Reglas para una buena descripción:**
+1. Especifica el tipo de output (ej: "una línea de asunto + cuerpo")
+2. Lista frases de activación explícitas
+3. Sé ligeramente imperativo — no esperes que el usuario adivine cómo invocarte
 
 ---
 
-## Ejercicio 3: Generando tests con datos dummy para servicios externos
+## Ejercicio 3: Escribir las instrucciones del skill
 
-Supón que tienes el siguiente archivo `weather_service.py`:
+Crea el archivo `~/.claude/skills/commit-message-writer/SKILL.md` con el siguiente contenido:
 
-```python
-import requests
+```markdown
+---
+name: commit-message-writer
+description: >
+  Genera mensajes de commit con formato Conventional Commits.
+  Úsame cuando quieras escribir un commit, hacer commit de tus cambios,
+  o resumir tu diff staged. Se activa con frases como "escribe un mensaje
+  de commit", "commitea mis cambios" o "resume mi diff staged".
+---
 
-def get_weather(location):
-	"""Fetches weather information for a given location."""
-	response = requests.get(f"https://api.weather.com/v3/weather/{location}")
-	return response.json()
+## Formato de output
+
+Usa la especificación Conventional Commits:
+
+
+type(scope): descripción corta
+
+[cuerpo opcional]
+
+[footer opcional]
 ```
 
-Para generar pruebas unitarias usando mock y datos dummy, puedes usar el siguiente prompt:
-
-> Genera casos de prueba unitarios usando mock para dependencias externas usando datos dummy
-
-Y el resultado esperado sería:
-
-```python
-import pytest
-from unittest.mock import patch, Mock
-from weather_service import get_weather
-
-def test_get_weather_with_mock():
-	dummy_data = {"temp": 25, "condition": "Sunny"}
-	mock_response = Mock()
-	mock_response.json.return_value = dummy_data
-	with patch("weather_service.requests.get", return_value=mock_response) as mock_get:
-		result = get_weather("lima")
-		mock_get.assert_called_once_with("https://api.weather.com/v3/weather/lima")
-		assert result == dummy_data
+## Tipos permitidos
 ```
+- `feat` — nueva funcionalidad
+- `fix` — corrección de bug
+- `docs` — cambios en documentación
+- `refactor` — refactorización sin cambio de comportamiento
+- `test` — agregar o corregir tests
+- `chore` — tareas de mantenimiento
 
-Puedes modificar el `dummy_data` para simular diferentes respuestas y agregar más pruebas para otros escenarios (por ejemplo, manejo de errores).
+## Reglas
+
+1. La descripción corta debe estar en modo imperativo (ej: "add", no "added")
+2. Máximo 72 caracteres en la primera línea
+3. Genera el output directamente, sin hacer preguntas
+4. Nunca uses lenguaje vago como "update stuff" o "fix things"
+5. Si hay cambios en archivos no relacionados, agrupa por tipo de cambio
+```
 
 ---
 
+## Ejercicio 4: Probar el skill
 
-## Ejercicio 4: Ejecutando las pruebas y revisando cobertura
+Una vez instalado, puedes invocar el skill de dos formas:
 
-1. Instala `pytest` en tu entorno de Python 3:
+**Invocación directa:**
+```
+/commit-message-writer
+```
 
-	```bash
-	pip install pytest
-	```
+**Lenguaje natural:**
+```
+escribe un mensaje de commit para mis cambios staged
+commitea mis cambios
+resume mi diff staged
+```
 
-2. (Opcional pero recomendado) Instala el plugin `pytest-cov` para ver la cobertura de código:
+**Casos de prueba para validar:**
 
-	```bash
-	pip install pytest-cov
-	```
-
-3. Ejecuta las pruebas con:
-
-	```bash
-	pytest
-	```
-	ó
-	```bash
-	python3 -m pytest
-	```
-
-4. Para ver el reporte de cobertura de código, ejecuta:
-
-	```bash
-	python3 -m pytest --cov
-	```
-
-	Esto mostrará un resumen de qué porcentaje de tu código está cubierto por las pruebas.
-
-5. Deberías ver una salida indicando que las pruebas pasaron correctamente y, si usaste `--cov`, un reporte de cobertura.
-
+| Escenario | Resultado esperado |
+|---|---|
+| Sin cambios staged | El skill indica que no hay nada staged |
+| Cambios en múltiples archivos no relacionados | Agrupa o separa por tipo |
+| Distintas formas de pedir el commit | El skill se activa correctamente |
 
 ---
 
-## Conclusión
+## Ejercicio 5: Mejorar el skill con el tiempo
 
-Has aprendido a:
-- Configurar y usar `pytest`.
-- Simular dependencias externas con `unittest.mock`.
-- Escribir pruebas unitarias efectivas para código que depende de servicios externos.
-- Entender el propósito de las anotaciones `#codebase /test` y `#codebase /setupTests` en la organización y automatización de pruebas.
+Los skills se refinan iterativamente. Estos son los problemas más comunes y cómo resolverlos:
 
-¡Buen trabajo!
+### Problema: Undertriggering (el skill no se activa)
+
+El agente no reconoce que debe usar el skill.
+
+**Solución:** Agrega más frases de activación al campo `description`:
+
+```yaml
+description: >
+  ... Se activa también con "haz commit", "crea un commit message",
+  "genera el mensaje para git commit"...
+```
+
+### Problema: Format drift (el output no respeta el formato)
+
+El agente produce output con estructura inconsistente.
+
+**Solución:** Agrega contraejemplos explícitos en las instrucciones:
+
+```markdown
+## Ejemplos
+
+Correcto:
+feat(auth): add JWT token refresh endpoint
+
+Incorrecto:
+- "Updated the auth stuff" (vago)
+- "feat: added new feature for authentication" (tiempo pasado, sin scope)
+```
+
+### Problema: Scope creep (el skill hace demasiado)
+
+El skill intenta resolver múltiples problemas y se vuelve confuso.
+
+**Solución:** Divide en skills separados. Un skill = una responsabilidad.
+
+---
+
+## Ejercicio 6: Versión para GitHub Copilot (carpeta `agents`)
+
+GitHub Copilot CLI soporta dos mecanismos de extensión:
+
+1. **Skills** (`SKILL.md`) — el mismo formato de este laboratorio. Copilot los descubre desde varias rutas:
+
+| Alcance | Rutas |
+|---|---|
+| Personal (usuario) | `~/.copilot/skills/` o `~/.agents/skills/` |
+| Proyecto | `.github/skills/`, `.agents/skills/` o `.claude/skills/` |
+
+   > Nota: `~/.agents/skills/` es la carpeta del estándar abierto **Agent Skills**, compartida entre herramientas. Y como Copilot también lee `.claude/skills/` dentro del proyecto, un skill de Claude Code funciona en Copilot **sin ningún cambio**. Verifica con:
+   > ```bash
+   > copilot skill list
+   > ```
+
+2. **Custom agents** — un archivo markdown por agente dentro de la carpeta `agents`:
+
+| Alcance | Ruta |
+|---|---|
+| Global (usuario) | `~/.copilot/agents/` |
+| Por repositorio | `.github/agents/` |
+
+Los siguientes pasos crean la versión **custom agent**.
+
+**Diferencias clave con Claude Code:**
+
+- No hay subcarpeta por skill: el archivo se llama directamente `nombre-del-agente.md`
+- El frontmatter usa `name`, `description` y opcionalmente `tools`
+- El cuerpo del markdown actúa como prompt del agente
+
+### Paso 1: Crear el archivo
+
+```bash
+mkdir -p ~/.copilot/agents
+touch ~/.copilot/agents/commit-message-writer.md
+```
+
+### Paso 2: Escribir el agente
+
+Crea `~/.copilot/agents/commit-message-writer.md` con el siguiente contenido:
+
+```markdown
+---
+name: commit-message-writer
+description: >
+  Genera mensajes de commit con formato Conventional Commits.
+  Úsame cuando quieras escribir un commit, hacer commit de tus cambios,
+  o resumir tu diff staged. Se activa con frases como "escribe un mensaje
+  de commit", "commitea mis cambios" o "resume mi diff staged".
+---
+
+## Formato de output
+
+Usa la especificación Conventional Commits:
+
+type(scope): descripción corta
+
+[cuerpo opcional]
+
+[footer opcional]
+
+## Tipos permitidos
+
+- `feat` — nueva funcionalidad
+- `fix` — corrección de bug
+- `docs` — cambios en documentación
+- `refactor` — refactorización sin cambio de comportamiento
+- `test` — agregar o corregir tests
+- `chore` — tareas de mantenimiento
+
+## Reglas
+
+1. La descripción corta debe estar en modo imperativo (ej: "add", no "added")
+2. Máximo 72 caracteres en la primera línea
+3. Genera el output directamente, sin hacer preguntas
+4. Nunca uses lenguaje vago como "update stuff" o "fix things"
+5. Si hay cambios en archivos no relacionados, agrupa por tipo de cambio
+```
+
+### Paso 3: Probar el agente en Copilot CLI
+
+**Listar agentes disponibles (modo interactivo):**
+```
+/agents
+```
+
+**Invocación directa:**
+```bash
+copilot --agent commit-message-writer -p "genera el mensaje de commit para mis cambios staged"
+```
+
+**Casos de prueba:** los mismos del Ejercicio 4 aplican sin cambios.
+
+---
+
+## Compatibilidad entre plataformas
+
+Las instrucciones del skill se reutilizan entre agentes de IA; en la mayoría de casos solo cambia la ruta:
+
+| Herramienta | Directorio | Formato |
+|---|---|---|
+| Claude Code | `~/.claude/skills/nombre-del-skill/` | `SKILL.md` |
+| GitHub Copilot (skills) | `~/.copilot/skills/` o `~/.agents/skills/` | `SKILL.md` |
+| GitHub Copilot (custom agents) | `~/.copilot/agents/` o `.github/agents/` | `nombre-del-agente.md` |
+| Cursor | `~/.cursor/skills/` | `SKILL.md` |
+| Gemini CLI | `~/.gemini/skills/` | `SKILL.md` |
+
+La carpeta `~/.agents/skills/` (estándar abierto **Agent Skills**) permite compartir un mismo skill entre varias herramientas sin duplicarlo. Esto significa que puedes escribir las instrucciones una vez y reutilizarlas en múltiples herramientas.
+
+---
+
+## Resumen: Propiedades de un skill efectivo
+
+1. **Encapsula un workflow repetible** — no tareas únicas o muy variables
+2. **Tiene un trigger claro y específico** — la descripción es la clave
+3. **Produce un output de formato consistente** — define estructura, campos y límites
+4. **Genera output directamente** — sin hacer preguntas innecesarias al usuario
