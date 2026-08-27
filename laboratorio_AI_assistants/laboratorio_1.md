@@ -219,7 +219,7 @@ El skill intenta resolver múltiples problemas y se vuelve confuso.
 
 ---
 
-## Ejercicio 6: Versión para GitHub Copilot (carpeta `agents`)
+## Ejercicio 6: Versión para GitHub Copilot (formato `SKILL.md`)
 
 GitHub Copilot CLI soporta dos mecanismos de extensión:
 
@@ -242,24 +242,20 @@ GitHub Copilot CLI soporta dos mecanismos de extensión:
 | Global (usuario) | `~/.copilot/agents/` |
 | Por repositorio | `.github/agents/` |
 
-Los siguientes pasos crean la versión **custom agent**.
+   > **Diferencias clave con Claude Code (solo custom agents):** no hay subcarpeta por skill (el archivo se llama directamente `nombre-del-agente.md`), el frontmatter usa `name`, `description` y opcionalmente `tools`, y el cuerpo del markdown actúa como prompt del agente.
 
-**Diferencias clave con Claude Code:**
-
-- No hay subcarpeta por skill: el archivo se llama directamente `nombre-del-agente.md`
-- El frontmatter usa `name`, `description` y opcionalmente `tools`
-- El cuerpo del markdown actúa como prompt del agente
+Los siguientes pasos crean la versión **skill** (`SKILL.md`) usando la ruta compartida del estándar Agent Skills, para que el mismo archivo sirva también en otras herramientas.
 
 ### Paso 1: Crear el archivo
 
 ```bash
-mkdir -p ~/.copilot/agents
-touch ~/.copilot/agents/commit-message-writer.md
+mkdir -p ~/.agents/skills/commit-message-writer
+touch ~/.agents/skills/commit-message-writer/SKILL.md
 ```
 
-### Paso 2: Escribir el agente
+### Paso 2: Escribir el skill
 
-Crea `~/.copilot/agents/commit-message-writer.md` con el siguiente contenido:
+Crea `~/.agents/skills/commit-message-writer/SKILL.md` con el siguiente contenido:
 
 ```markdown
 ---
@@ -299,16 +295,16 @@ type(scope): descripción corta
 5. Si hay cambios en archivos no relacionados, agrupa por tipo de cambio
 ```
 
-### Paso 3: Probar el agente en Copilot CLI
+### Paso 3: Probar el skill en Copilot CLI
 
-**Listar agentes disponibles (modo interactivo):**
-```
-/agents
-```
-
-**Invocación directa:**
+**Verificar que Copilot descubrió el skill:**
 ```bash
-copilot --agent commit-message-writer -p "genera el mensaje de commit para mis cambios staged"
+copilot skill list
+```
+
+**Invocación con lenguaje natural:**
+```bash
+copilot -p "genera el mensaje de commit para mis cambios staged"
 ```
 
 **Casos de prueba:** los mismos del Ejercicio 4 aplican sin cambios.
