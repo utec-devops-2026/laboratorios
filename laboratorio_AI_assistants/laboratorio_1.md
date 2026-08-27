@@ -322,10 +322,12 @@ Las instrucciones del skill se reutilizan entre agentes de IA; en la mayoría de
 | Claude Code | `~/.claude/skills/nombre-del-skill/` | `SKILL.md` |
 | GitHub Copilot (skills) | `~/.copilot/skills/` o `~/.agents/skills/` | `SKILL.md` |
 | GitHub Copilot (custom agents) | `~/.copilot/agents/` o `.github/agents/` | `nombre-del-agente.md` |
-| Cursor | `~/.cursor/skills/` | `SKILL.md` |
-| Gemini CLI | `~/.gemini/skills/` | `SKILL.md` |
+| Cursor | `~/.cursor/skills/` o `~/.agents/skills/` | `SKILL.md` |
+| Gemini CLI | `~/.gemini/skills/` o `~/.agents/skills/` | `SKILL.md` |
+| Antigravity (workspace) | `.agents/skills/` o `.agent/skills/` (en la raíz del proyecto) | `SKILL.md` |
+| Antigravity (global) | `~/.gemini/config/skills/` | `SKILL.md` |
 
-La carpeta `~/.agents/skills/` (estándar abierto **Agent Skills**) permite compartir un mismo skill entre varias herramientas sin duplicarlo. Esto significa que puedes escribir las instrucciones una vez y reutilizarlas en múltiples herramientas.
+La carpeta `~/.agents/skills/` (estándar abierto **Agent Skills**) permite compartir un mismo skill **sin duplicarlo**. En la práctica, **solo funciona de forma compartida en Cursor y Gemini CLI**: si dejas el skill ahí, esas dos herramientas lo descubren. **Antigravity no lee `~/.agents/skills/`**; usa su propia estructura (`~/.gemini/config/skills/` a nivel global, y `.agents/skills/` o `.agent/skills/` en el proyecto). Si quieres el mismo skill en Antigravity, cópialo o enlázalo a esas rutas.
 
 ---
 
