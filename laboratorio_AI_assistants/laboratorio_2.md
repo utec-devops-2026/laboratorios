@@ -6,6 +6,20 @@
 
 ---
 
+## Objetivos de aprendizaje
+
+Al finalizar, podrás:
+
+- Explicar qué es un **skill** y cuándo conviene crearlo.
+- Crear la estructura de un skill en `~/.claude/skills/`.
+- Escribir un **frontmatter** con una descripción efectiva que active el skill correctamente.
+- Redactar instrucciones con formato de output, reglas y ejemplos.
+- Probar un skill por **invocación directa** y **lenguaje natural**.
+- Diagnosticar y corregir problemas comunes: *undertriggering*, *format drift* y *scope creep*.
+- Portar el skill a **GitHub Copilot** como custom agent en la carpeta `agents`.
+
+---
+
 ## ¿Qué es un Skill?
 
 Un skill es un archivo markdown (`SKILL.md`) que se carga automáticamente en el contexto de Claude Code cuando lo necesitas. Contiene frontmatter YAML con metadatos y las instrucciones que el agente debe seguir.
@@ -203,18 +217,115 @@ El skill intenta resolver múltiples problemas y se vuelve confuso.
 
 ---
 
+## Ejercicio 6: Versión para GitHub Copilot (carpeta `agents`)
+
+GitHub Copilot CLI soporta dos mecanismos de extensión:
+
+1. **Skills** (`SKILL.md`) — el mismo formato de este laboratorio. Copilot los descubre desde varias rutas:
+
+| Alcance | Rutas |
+|---|---|
+| Personal (usuario) | `~/.copilot/skills/` o `~/.agents/skills/` |
+| Proyecto | `.github/skills/`, `.agents/skills/` o `.claude/skills/` |
+
+   > Nota: `~/.agents/skills/` es la carpeta del estándar abierto **Agent Skills**, compartida entre herramientas. Y como Copilot también lee `.claude/skills/` dentro del proyecto, un skill de Claude Code funciona en Copilot **sin ningún cambio**. Verifica con:
+   > ```bash
+   > copilot skill list
+   > ```
+
+2. **Custom agents** — un archivo markdown por agente dentro de la carpeta `agents`:
+
+| Alcance | Ruta |
+|---|---|
+| Global (usuario) | `~/.copilot/agents/` |
+| Por repositorio | `.github/agents/` |
+
+Los siguientes pasos crean la versión **custom agent**.
+
+**Diferencias clave con Claude Code:**
+
+- No hay subcarpeta por skill: el archivo se llama directamente `nombre-del-agente.md`
+- El frontmatter usa `name`, `description` y opcionalmente `tools`
+- El cuerpo del markdown actúa como prompt del agente
+
+### Paso 1: Crear el archivo
+
+```bash
+mkdir -p ~/.copilot/agents
+touch ~/.copilot/agents/commit-message-writer.md
+```
+
+### Paso 2: Escribir el agente
+
+Crea `~/.copilot/agents/commit-message-writer.md` con el siguiente contenido:
+
+```markdown
+---
+name: commit-message-writer
+description: >
+  Genera mensajes de commit con formato Conventional Commits.
+  Úsame cuando quieras escribir un commit, hacer commit de tus cambios,
+  o resumir tu diff staged. Se activa con frases como "escribe un mensaje
+  de commit", "commitea mis cambios" o "resume mi diff staged".
+---
+
+## Formato de output
+
+Usa la especificación Conventional Commits:
+
+type(scope): descripción corta
+
+[cuerpo opcional]
+
+[footer opcional]
+
+## Tipos permitidos
+
+- `feat` — nueva funcionalidad
+- `fix` — corrección de bug
+- `docs` — cambios en documentación
+- `refactor` — refactorización sin cambio de comportamiento
+- `test` — agregar o corregir tests
+- `chore` — tareas de mantenimiento
+
+## Reglas
+
+1. La descripción corta debe estar en modo imperativo (ej: "add", no "added")
+2. Máximo 72 caracteres en la primera línea
+3. Genera el output directamente, sin hacer preguntas
+4. Nunca uses lenguaje vago como "update stuff" o "fix things"
+5. Si hay cambios en archivos no relacionados, agrupa por tipo de cambio
+```
+
+### Paso 3: Probar el agente en Copilot CLI
+
+**Listar agentes disponibles (modo interactivo):**
+```
+/agents
+```
+
+**Invocación directa:**
+```bash
+copilot --agent commit-message-writer -p "genera el mensaje de commit para mis cambios staged"
+```
+
+**Casos de prueba:** los mismos del Ejercicio 4 aplican sin cambios.
+
+---
+
 ## Compatibilidad entre plataformas
 
-El formato `SKILL.md` es consistente entre diferentes agentes de IA. Solo cambia la ruta de instalación:
+Las instrucciones del skill se reutilizan entre agentes de IA; en la mayoría de casos solo cambia la ruta:
 
-| Herramienta | Directorio de skills |
-|---|---|
-| Claude Code | `~/.claude/skills/` |
-| GitHub Copilot | `~/.copilot/skills/` |
-| Cursor | `~/.cursor/skills/` |
-| Gemini CLI | `~/.gemini/skills/` |
+| Herramienta | Directorio | Formato |
+|---|---|---|
+| Claude Code | `~/.claude/skills/nombre-del-skill/` | `SKILL.md` |
+| GitHub Copilot (skills) | `~/.copilot/skills/` o `~/.agents/skills/` | `SKILL.md` |
+| GitHub Copilot (custom agents) | `~/.copilot/agents/` o `.github/agents/` | `nombre-del-agente.md` |
+| Cursor | `~/.cursor/skills/` | `SKILL.md` |
+| Gemini CLI | `~/.gemini/skills/` | `SKILL.md` |
 
-Esto significa que puedes escribir un skill una vez y reutilizarlo en múltiples herramientas.
+La carpeta `~/.agents/skills/` (estándar abierto **Agent Skills**) permite compartir un mismo skill entre varias herramientas sin duplicarlo. Esto significa que puedes escribir las instrucciones una vez y reutilizarlas en múltiples herramientas.
 
 ---
 
