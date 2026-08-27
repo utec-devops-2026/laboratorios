@@ -1,198 +1,163 @@
-# Laboratorio: Vibe Coding, Pruebas Unitarias y Mocking en Python
+# Laboratorio: Generación de mensajes de commit desde cambios staged
 
-**Duración estimada:** 30–45 min  
-**Nivel:** Intermedio  
-**Objetivo:** Realizar pruebas unitarias a través de asistente IA Copilot
-
----
-## Prerrequisito:
-- Realizar un fork de: https://github.com/wils0n/lab-github-copilot-unit-test/tree/main
-- Copiar los archivos Calculadora.py, math_utils.py, weather_service.py de a este repositorio desde https://github.com/wils0n/laboratorios-md/tree/main/laboratorio_AI_assistants/files
-
-
-## Ejercicio 1: Configuración global de tests con #codebase /setupTests
-
-Las anotaciones como `#codebase /setupTests` se utilizan para indicar archivos o bloques de código que preparan el entorno de pruebas, por ejemplo, Te preguntará si deseas utilizar pytest o unittest:
-
-```python
-Elegiremos pytest
-```
+**Duración estimada:** 15-20 min
+**Nivel:** Básico
+**Objetivo:** Generar mensajes de commit claros con Conventional Commits a partir de los cambios que estén en staging.
 
 ---
 
-## Ejercicio 2: Generar Pruebas unitarias de una calculadora con #codebase /test
+## Prerrequisitos
 
-Si abrimos el archivo Calculator.py y en el prompt usas `#codebase /test`, generará los unit test para el archivo activo. Por ejemplo, para una calculadora te generará algo como:
+- Tener Git instalado y configurado.
+- Trabajar en un repositorio Git con al menos un archivo modificado.
+- Tener disponible la skill `staged-commit-message-writer`.
 
-```python
-# #codebase /test
-import pytest
-from calculator import add, subtract, multiply, divide, power, factorial
+---
 
-def test_add():
-	assert add(2, 3) == 5
+## Ejercicio 1: Preparar cambios en staging
 
-def test_subtract():
-	assert subtract(5, 2) == 3
+1. Revisa el estado del repositorio:
 
-def test_multiply():
-	assert multiply(2, 4) == 8
+   ```bash
+   git status
+   ```
 
-def test_divide():
-	assert divide(10, 2) == 5
-	with pytest.raises(ValueError):
-		divide(5, 0)
+2. Agrega al área de staging únicamente los cambios que deseas incluir en el commit:
 
-def test_power():
-	assert power(2, 3) == 8
+   ```bash
+   git add <archivo>
+   ```
 
-def test_factorial():
-	assert factorial(5) == 120
-	assert factorial(0) == 1
-	with pytest.raises(ValueError):
-		factorial(-1)
+3. Confirma qué cambios están preparados:
+
+   ```bash
+   git diff --cached --name-status
+   git diff --cached --stat
+   ```
+
+La skill analiza exclusivamente los cambios staged. Las modificaciones que no se hayan agregado con `git add` no forman parte de la propuesta.
+
+---
+
+## Ejercicio 2: Generar el mensaje de commit
+
+Invoca la skill desde Copilot CLI:
+
+```text
+/staged-commit-message-writer
+```
+
+La skill realiza este flujo:
+
+1. Verifica si existen cambios en staging.
+2. Inspecciona los archivos, el tipo de cambio (`A`, `M`, `D` o `R`) y el diff.
+3. Identifica el cambio dominante.
+4. Selecciona el tipo de Conventional Commit y un scope breve si es evidente.
+5. Devuelve un mensaje listo para usar, sin metadatos ni atribuciones de IA.
+
+Si no hay cambios staged, la salida será:
+
+```text
+No hay cambios en staging para commitear.
 ```
 
 ---
 
-## Ejercicio 3: Generando tests para funciones matemáticas en math_utils.py
+## Ejercicio 3: Interpretar el formato generado
 
-Abrir el archivo `math_utils.py`:
+El mensaje sigue esta estructura:
 
-```python
-def generate_fibonacci(n):
-	"""Generates a list of the first n Fibonacci numbers."""
-	if n < 0:
-		raise ValueError("Input must be a non-negative integer.")
-	fib_sequence = []
-	a, b = 0, 1
-	for _ in range(n):
-		fib_sequence.append(a)
-		a, b = b, a + b
-	return fib_sequence
+```text
+type(scope): short imperative summary
 
-def factorial(n):
-	"""Calculates the factorial of a number."""
-	if n < 0:
-		raise ValueError("Factorial is not defined for negative numbers.")
-	result = 1
-	for i in range(1, n + 1):
-		result *= i
-	return result
+optional body with key changes
+
+optional footer
 ```
 
-Para generar pruebas unitarias para estas funciones, puedes usar el siguiente prompt:
+Cuando no sea claro un scope, se omite:
 
-> Genera casos de prueba unitarios para math_utils.py
-
-Y el resultado esperado sería:
-
-```python
-import pytest
-from math_utils import generate_fibonacci, factorial
-
-def test_generate_fibonacci():
-	assert generate_fibonacci(0) == []
-	assert generate_fibonacci(1) == [0]
-	assert generate_fibonacci(5) == [0, 1, 1, 2, 3]
-	assert generate_fibonacci(7) == [0, 1, 1, 2, 3, 5, 8]
-	with pytest.raises(ValueError):
-		generate_fibonacci(-1)
-
-def test_factorial():
-	assert factorial(0) == 1
-	assert factorial(1) == 1
-	assert factorial(5) == 120
-	with pytest.raises(ValueError):
-		factorial(-3)
+```text
+type: short imperative summary
 ```
 
-Puedes modificar o ampliar los tests para cubrir más casos según lo necesites.
+El asunto debe usar voz imperativa, describir un cambio concreto y tener como máximo 72 caracteres.
+
+### Tipos permitidos
+
+- `feat`: nueva funcionalidad.
+- `fix`: corrección de un error.
+- `docs`: cambios de documentación.
+- `refactor`: cambios internos sin modificar el comportamiento esperado.
+- `test`: creación o ajuste de pruebas.
+- `chore`: mantenimiento, tooling o configuración.
+- `ci`: integración continua o automatización.
 
 ---
 
-## Ejercicio 3: Generando tests con datos dummy para servicios externos
+## Ejercicio 4: Aplicar el mensaje propuesto
 
-Supón que tienes el siguiente archivo `weather_service.py`:
+Copia el mensaje generado y crea el commit:
 
-```python
-import requests
-
-def get_weather(location):
-	"""Fetches weather information for a given location."""
-	response = requests.get(f"https://api.weather.com/v3/weather/{location}")
-	return response.json()
+```bash
+git commit -m "type(scope): short imperative summary"
 ```
 
-Para generar pruebas unitarias usando mock y datos dummy, puedes usar el siguiente prompt:
+Para un mensaje con cuerpo, usa un editor o varias opciones `-m`:
 
-> Genera casos de prueba unitarios usando mock para dependencias externas usando datos dummy
-
-Y el resultado esperado sería:
-
-```python
-import pytest
-from unittest.mock import patch, Mock
-from weather_service import get_weather
-
-def test_get_weather_with_mock():
-	dummy_data = {"temp": 25, "condition": "Sunny"}
-	mock_response = Mock()
-	mock_response.json.return_value = dummy_data
-	with patch("weather_service.requests.get", return_value=mock_response) as mock_get:
-		result = get_weather("lima")
-		mock_get.assert_called_once_with("https://api.weather.com/v3/weather/lima")
-		assert result == dummy_data
+```bash
+git commit -m "type(scope): short imperative summary" \
+  -m "Describe the key changes."
 ```
 
-Puedes modificar el `dummy_data` para simular diferentes respuestas y agregar más pruebas para otros escenarios (por ejemplo, manejo de errores).
+Ejemplos de resultados válidos:
+
+```text
+test(calculadora): add multiply unit tests for edge cases
+```
+
+```text
+fix(calculadora): handle divide by zero with ValueError
+```
+
+Evita mensajes ambiguos como:
+
+```text
+updated calculator
+fix: fixed stuff
+changes in files
+```
 
 ---
 
+## Ejercicio 5: Manejar cambios no relacionados
 
-## Ejercicio 4: Ejecutando las pruebas y revisando cobertura
+Si los cambios staged pertenecen a temas distintos, la skill recomienda separarlos en commits y propone una opción para cada grupo:
 
-1. Instala `pytest` en tu entorno de Python 3:
+```text
+Se detectaron cambios staged en grupos distintos. Recomendación: separar commits.
 
-	```bash
-	pip install pytest
-	```
+Opción 1:
+<commit message 1>
 
-2. (Opcional pero recomendado) Instala el plugin `pytest-cov` para ver la cobertura de código:
+Opción 2:
+<commit message 2>
+```
 
-	```bash
-	pip install pytest-cov
-	```
+En ese caso, restaura el staging de forma selectiva y crea un commit por grupo:
 
-3. Ejecuta las pruebas con:
-
-	```bash
-	pytest
-	```
-	ó
-	```bash
-	python3 -m pytest
-	```
-
-4. Para ver el reporte de cobertura de código, ejecuta:
-
-	```bash
-	python3 -m pytest --cov
-	```
-
-	Esto mostrará un resumen de qué porcentaje de tu código está cubierto por las pruebas.
-
-5. Deberías ver una salida indicando que las pruebas pasaron correctamente y, si usaste `--cov`, un reporte de cobertura.
-
+```bash
+git restore --staged <archivo>
+git add <archivos-del-primer-grupo>
+```
 
 ---
 
 ## Conclusión
 
 Has aprendido a:
-- Configurar y usar `pytest`.
-- Simular dependencias externas con `unittest.mock`.
-- Escribir pruebas unitarias efectivas para código que depende de servicios externos.
-- Entender el propósito de las anotaciones `#codebase /test` y `#codebase /setupTests` en la organización y automatización de pruebas.
 
-¡Buen trabajo!
+- Preparar cambios concretos en el área de staging.
+- Generar mensajes de commit basados solo en esos cambios.
+- Elegir tipos y scopes de Conventional Commits.
+- Separar commits cuando los cambios no están relacionados.
