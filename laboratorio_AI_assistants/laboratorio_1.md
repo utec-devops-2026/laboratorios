@@ -104,7 +104,9 @@ description: >
 
 ---
 
-## Ejercicio 3: Escribir las instrucciones del skill
+## Ejercicio 3: Escribir las instrucciones del skill (Claude Code)
+
+> **Nota:** esta configuración y este path (`~/.claude/skills/`) aplican solo a **Claude Code**. Otros agentes usan rutas distintas (por ejemplo, Antigravity usa `~/.gemini/config/skills/` para skills globales o `<workspace>/.agents/skills/` por proyecto).
 
 Crea el archivo `~/.claude/skills/commit-message-writer/SKILL.md` con el siguiente contenido:
 
