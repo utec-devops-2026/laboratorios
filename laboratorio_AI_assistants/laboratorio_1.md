@@ -337,3 +337,5 @@ La carpeta `~/.agents/skills/` (estándar abierto **Agent Skills**) permite comp
 2. **Tiene un trigger claro y específico** — la descripción es la clave
 3. **Produce un output de formato consistente** — define estructura, campos y límites
 4. **Genera output directamente** — sin hacer preguntas innecesarias al usuario
+
+¡Buen trabajo!
