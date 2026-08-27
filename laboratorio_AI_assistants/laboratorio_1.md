@@ -1,8 +1,8 @@
-# Laboratorio: Creando tus propios Skills en Claude Code
+# Laboratorio: Creando tus propios Skills para asistentes de IA
 
 **Duración estimada:** 30–45 min  
 **Nivel:** Intermedio  
-**Objetivo:** Aprender a crear, instalar y mejorar skills personalizados para Claude Code
+**Objetivo:** Aprender a crear, instalar y mejorar skills personalizados para distintos asistentes de IA, como Claude Code, Codex y GitHub Copilot.
 
 ---
 
@@ -11,12 +11,12 @@
 Al finalizar, podrás:
 
 - Explicar qué es un **skill** y cuándo conviene crearlo.
-- Crear la estructura de un skill en `~/.claude/skills/`.
+- Crear la estructura de un skill en el directorio correspondiente al asistente de IA utilizado.
 - Escribir un **frontmatter** con una descripción efectiva que active el skill correctamente.
 - Redactar instrucciones con formato de output, reglas y ejemplos.
-- Probar un skill por **invocación directa** y **lenguaje natural**.
+- Probar un skill por **invocación directa** y **lenguaje natural**, según las capacidades del asistente.
 - Diagnosticar y corregir problemas comunes: *undertriggering*, *format drift* y *scope creep*.
-- Portar el skill a **GitHub Copilot** como custom agent en la carpeta `agents`.
+- Adaptar y configurar el skill para diferentes asistentes de IA, como **Claude Code**, **Codex** y **GitHub Copilot**.
 
 ---
 
