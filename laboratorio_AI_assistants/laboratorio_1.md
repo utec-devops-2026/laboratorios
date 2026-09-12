@@ -61,18 +61,7 @@ Aquí van las instrucciones para el agente...
 
 ---
 
-## Ejercicio 1: Crear la estructura del skill
-
-Crea el directorio e instala tu primer skill:
-
-```bash
-mkdir -p ~/.claude/skills/commit-message-writer
-touch ~/.claude/skills/commit-message-writer/SKILL.md
-```
-
----
-
-## Ejercicio 2: Escribir el frontmatter y la descripción
+## Preparación: Diseñar el frontmatter y la descripción
 
 El campo `description` es **crítico**: el agente decide si cargar o no el skill basándose únicamente en este campo.
 
@@ -104,7 +93,7 @@ description: >
 
 ---
 
-## Ejercicio 3: Escribir las instrucciones del skill (Claude Code)
+## Ejercicio 1: Escribir las instrucciones del skill (Claude Code)
 
 > **Nota:** esta configuración y este path (`~/.claude/skills/`) aplican solo a **Claude Code**. Otros agentes usan rutas distintas (por ejemplo, Antigravity usa `~/.gemini/config/skills/` para skills globales o `<workspace>/.agents/skills/` por proyecto).
 
@@ -152,7 +141,7 @@ type(scope): descripción corta
 
 ---
 
-## Ejercicio 4: Probar el skill
+## Ejercicio 2: Probar el skill
 
 Una vez instalado, puedes invocar el skill de dos formas:
 
@@ -178,7 +167,7 @@ resume mi diff staged
 
 ---
 
-## Ejercicio 5: Mejorar el skill con el tiempo
+## Ejercicio 3: Mejorar el skill con el tiempo
 
 Los skills se refinan iterativamente. Estos son los problemas más comunes y cómo resolverlos:
 
@@ -219,7 +208,7 @@ El skill intenta resolver múltiples problemas y se vuelve confuso.
 
 ---
 
-## Ejercicio 6: Versión para GitHub Copilot (formato `SKILL.md`)
+## Ejercicio 4: Versión para GitHub Copilot (formato `SKILL.md`)
 
 GitHub Copilot CLI soporta dos mecanismos de extensión:
 
@@ -307,7 +296,7 @@ copilot skill list
 copilot -p "genera el mensaje de commit para mis cambios staged"
 ```
 
-**Casos de prueba:** los mismos del Ejercicio 4 aplican sin cambios.
+**Casos de prueba:** los mismos del Ejercicio 2 aplican sin cambios.
 
 ---
 
