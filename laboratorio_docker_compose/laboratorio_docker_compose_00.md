@@ -4,8 +4,6 @@
 **Nivel:** Básico–Intermedio  
 **Prerrequisito:** Haber completado `laboratorio_docker_01.md` (imagen `flask-docker-app:1.0` construida)
 
-> Este laboratorio se concentra en lo esencial: levantar dos servicios con Compose y conectarlos. Secrets, volúmenes y redes personalizadas se tratan en `laboratorio_docker_compose_01.md`.
-
 ---
 
 ## Objetivos de aprendizaje
