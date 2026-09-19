@@ -14,7 +14,7 @@
 - Escalar réplicas de forma imperativa (`kubectl scale`) y declarativa (YAML + `kubectl apply`).
 - Observar cómo el `Service` balancea el tráfico entre las réplicas.
 - Comprobar la autorreparación (*self-healing*) del `ReplicaSet` al eliminar un Pod.
-- (Opcional) Configurar autoescalado con un `HorizontalPodAutoscaler`.
+- (Reto) Configurar autoescalado con un `HorizontalPodAutoscaler`.
 
 ---
 
@@ -184,7 +184,7 @@ spec:
               port: 5000
             initialDelaySeconds: 3
             periodSeconds: 5
-          resources:                    # Necesario para el HPA (parte opcional)
+          resources:                    # Necesario para el HPA (reto final)
             requests:
               cpu: "100m"
               memory: "64Mi"
@@ -412,9 +412,13 @@ kubectl get all              # Solo debe quedar el service "kubernetes"
 
 ---
 
-## (Opcional) Parte 5: Autoescalado con HPA
+## Parte 5 (Reto): Autoescalado con HPA
+
+> **Reto.** Esta parte va más allá de los 40 minutos del laboratorio. Resuélvela si terminaste antes o por tu cuenta después de clase.
 
 Un **HorizontalPodAutoscaler (HPA)** ajusta `replicas` automáticamente según el uso de CPU o memoria. Requiere el complemento **metrics-server** y que los contenedores tengan `resources.requests` (ya lo tienen).
+
+El porcentaje se calcula **sobre el `request`**, no sobre la capacidad del nodo: un Pod que consume 60m con `requests.cpu: 100m` está al 60%. Sin `requests` el HPA no tiene denominador, muestra `<unknown>` y nunca escala.
 
 Instalar metrics-server:
 
