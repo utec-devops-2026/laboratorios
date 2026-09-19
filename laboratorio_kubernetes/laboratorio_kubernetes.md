@@ -20,17 +20,33 @@
 
 ## Requisitos
 
-- Kubernetes local funcionando: **Docker Desktop** (Kubernetes habilitado en Settings) o **Minikube**.
-- `kubectl` instalado y conectado al clúster.
+- Kubernetes local funcionando con una de estas opciones:
+  - **Docker Desktop**: Settings → Kubernetes → *Enable Kubernetes* → Apply & restart.
+  - **OrbStack** (macOS): `orb start k8s` (o en la app: Kubernetes → *Turn On*).
+  - **Minikube**: `minikube start`.
+- `kubectl` instalado y apuntando al clúster correcto.
 - Docker para construir la imagen.
 
 Verifica antes de empezar:
 
 ```bash
+kubectl config get-contexts        # el contexto activo (*) debe ser docker-desktop, orbstack o minikube
 kubectl get nodes
 # NAME             STATUS   ROLES           AGE   VERSION
 # docker-desktop   Ready    control-plane   ...   v1.3x
 ```
+
+Si el contexto activo no es el de tu clúster, cámbialo:
+
+```bash
+kubectl config use-context orbstack        # o docker-desktop / minikube
+```
+
+| Herramienta | Contexto `kubectl` | Imagen local visible en el clúster | NodePort desde tu máquina |
+|---|---|---|---|
+| Docker Desktop | `docker-desktop` | Sí, sin pasos extra | `localhost:30080` |
+| OrbStack | `orbstack` | Sí, sin pasos extra | `localhost:30080` |
+| Minikube | `minikube` | No: `minikube image load <imagen>` | `minikube service <svc> --url` |
 
 ---
 
@@ -45,7 +61,8 @@ flask-k8s-app/
 ├── k8s/
 │   ├── 01-deployment.yaml
 │   └── 02-service.yaml
-├── capturas/
+├── scripts/
+│   └── balanceo.sh
 └── README.md
 ```
 
@@ -56,7 +73,7 @@ flask-k8s-app/
 ### 1.1 Crear la aplicación
 
 ```bash
-mkdir -p flask-k8s-app/app flask-k8s-app/k8s flask-k8s-app/capturas
+mkdir -p flask-k8s-app/app flask-k8s-app/k8s flask-k8s-app/scripts
 cd flask-k8s-app
 ```
 
@@ -123,7 +140,7 @@ docker images flask-k8s-app
 ```
 
 > **Minikube:** el clúster no ve las imágenes locales de Docker. Cárgala con `minikube image load flask-k8s-app:1.0`.  
-> **Docker Desktop:** la imagen local ya es visible para el clúster; no hay que hacer nada más.
+> **Docker Desktop y OrbStack:** la imagen local ya es visible para el clúster; no hay que hacer nada más.
 
 ---
 
@@ -213,13 +230,25 @@ Aplicar y verificar:
 kubectl apply -f k8s/02-service.yaml
 
 kubectl get svc flask-service
-kubectl get endpoints flask-service   # Debe listar las IPs de los 2 Pods
+
+# Las IPs de los Pods a los que apunta el Service (una por línea)
+kubectl get endpointslices -l kubernetes.io/service-name=flask-service \
+  -o jsonpath='{range .items[*].endpoints[*]}{.addresses[0]}{"\n"}{end}'
 ```
+
+Salida esperada con 2 réplicas:
+
+```
+192.168.194.4
+192.168.194.6
+```
+
+> **Por qué no `kubectl get endpoints`:** en Kubernetes 1.33+ el objeto `Endpoints` está deprecado en favor de `EndpointSlice` y el comando imprime un `Warning`. Además, tanto `get endpoints` como `get endpointslices -o wide` **recortan la lista a 3 direcciones** y añaden `+ N more...`, justo cuando más importa verlas todas (al escalar a 5). Por eso el lab usa `jsonpath`, que las imprime todas.
 
 ### 2.3 Probar el balanceo
 
 ```bash
-# Docker Desktop: el NodePort responde en localhost
+# Docker Desktop y OrbStack: el NodePort responde en localhost
 curl http://localhost:30080/
 
 # Minikube: obtén la URL con
@@ -232,13 +261,62 @@ Lanza varias peticiones seguidas y fíjate en el campo `pod`:
 for i in $(seq 1 6); do curl -s http://localhost:30080/; echo; done
 ```
 
-Deberías ver que las respuestas alternan entre los 2 nombres de Pod. Ese es el `Service` balanceando el tráfico.
+> Cuidado al escribir el bucle: `/\;` (con barra invertida) convierte la URL en `http://localhost:30080/;` y Flask responde `404 Not Found`. El `;` va sin escapar.
+
+Vas a repetir esta prueba varias veces al escalar, así que guárdala como script. Además de mostrar cada respuesta, cuenta cuántas peticiones atendió cada Pod.
+
+**Archivo:** `scripts/balanceo.sh`
+
+```bash
+#!/usr/bin/env bash
+# Uso: ./scripts/balanceo.sh [peticiones] [url]
+# Lanza N peticiones al Service y cuenta cuántas atendió cada Pod.
+set -euo pipefail
+
+N="${1:-10}"
+URL="${2:-http://localhost:30080/}"
+
+echo "== $N peticiones a $URL =="
+pods=""
+for i in $(seq 1 "$N"); do
+  body=$(curl -s --max-time 3 "$URL") || { echo "peticion $i: sin respuesta"; continue; }
+  pod=$(echo "$body" | sed -n 's/.*"pod": *"\([^"]*\)".*/\1/p')
+  echo "peticion $i -> ${pod:-respuesta inesperada: $body}"
+  [ -n "$pod" ] && pods="$pods$pod"$'\n'
+done
+
+echo
+echo "== Peticiones por Pod =="
+printf '%s' "$pods" | sort | uniq -c | sort -rn
+```
+
+```bash
+chmod +x scripts/balanceo.sh
+./scripts/balanceo.sh          # 10 peticiones a localhost:30080
+./scripts/balanceo.sh 20       # 20 peticiones
+```
+
+Salida esperada con 2 réplicas (los nombres cambian en tu clúster):
+
+```
+== 10 peticiones a http://localhost:30080/ ==
+peticion 1 -> flask-app-8bb8cbd8b-8rd4g
+peticion 2 -> flask-app-8bb8cbd8b-q7ksm
+...
+== Peticiones por Pod ==
+   6 flask-app-8bb8cbd8b-8rd4g
+   4 flask-app-8bb8cbd8b-q7ksm
+```
+
+El reparto no es 50/50 exacto: kube-proxy elige un Pod al azar por conexión. Lo importante es que aparezcan **todos** los Pods. Ese es el `Service` balanceando el tráfico.
+
+> **Minikube:** pasa la URL como segundo argumento: `./scripts/balanceo.sh 10 "$(minikube service flask-service --url)/"`.
 
 > Si `curl` da `Connection refused`, revisa que los Pods estén `Running` y `READY 1/1`. Si el puerto 30080 está ocupado, cambia `nodePort` por otro dentro del rango 30000-32767.
 
 **Capturas requeridas:**
 - `kubectl get pods -o wide` con 2 Pods `Running`.
-- Salida del bucle de `curl` mostrando 2 nombres de Pod distintos.
+- Salida de `./scripts/balanceo.sh` mostrando 2 nombres de Pod distintos.
 
 ---
 
@@ -257,8 +335,9 @@ Verifica el resultado:
 
 ```bash
 kubectl get deployment flask-app        # READY 5/5
-kubectl get endpoints flask-service     # Ahora 5 IPs
-for i in $(seq 1 10); do curl -s http://localhost:30080/; echo; done
+kubectl get endpointslices -l kubernetes.io/service-name=flask-service \
+  -o jsonpath='{range .items[*].endpoints[*]}{.addresses[0]}{"\n"}{end}'   # Ahora 5 IPs, una por línea
+./scripts/balanceo.sh 20                # Deben aparecer los 5 Pods
 ```
 
 El `Service` agregó automáticamente los Pods nuevos a sus Endpoints. No tuviste que tocar el `Service`.
@@ -307,8 +386,9 @@ kubectl describe deployment flask-app | grep -A 5 "Events"
 ```bash
 kubectl scale deployment flask-app --replicas=0
 kubectl get pods                       # Sin Pods
-kubectl get endpoints flask-service    # Sin endpoints
-curl http://localhost:30080/           # Falla: no hay Pods que atiendan
+kubectl get endpointslices -l kubernetes.io/service-name=flask-service \
+  -o jsonpath='{range .items[*].endpoints[*]}{.addresses[0]}{"\n"}{end}'   # Sin salida: ninguna IP
+./scripts/balanceo.sh 3                # "sin respuesta": no hay Pods que atiendan
 
 # Restaurar
 kubectl scale deployment flask-app --replicas=2
@@ -318,7 +398,7 @@ kubectl get pods
 El `Deployment` y el `Service` siguen existiendo aunque haya 0 réplicas. Esto es útil para "apagar" una aplicación sin borrar su configuración.
 
 **Capturas requeridas:**
-- `kubectl get deployment flask-app` con `READY 5/5` tras el escalado.
+- `kubectl get deployment flask-app` con `READY 5/5` y `endpointslices` con las 5 IPs tras el escalado.
 - `kubectl get pods` justo después de eliminar un Pod, mostrando el Pod nuevo (edad de pocos segundos).
 
 ---
@@ -376,7 +456,7 @@ kubectl delete hpa flask-app
 - [ ] Imagen `flask-k8s-app:1.0` construida.
 - [ ] `Deployment` con 2 réplicas `READY 2/2`.
 - [ ] `Service` NodePort respondiendo en el puerto 30080.
-- [ ] `curl` repetido muestra nombres de Pod distintos (balanceo).
+- [ ] `scripts/balanceo.sh` muestra nombres de Pod distintos (balanceo).
 - [ ] Escalado a 5 réplicas con `kubectl scale`.
 - [ ] Escalado a 3 réplicas editando el YAML y aplicando.
 - [ ] Pod eliminado y recreado automáticamente.
@@ -386,6 +466,28 @@ kubectl delete hpa flask-app
 
 ## Troubleshooting
 
+### `kubectl apply` falla con `connect: connection refused`
+
+```
+error validating "k8s/01-deployment.yaml": ... Get "https://127.0.0.1:6443/openapi/v2": dial tcp 127.0.0.1:6443: connect: connection refused
+```
+
+El clúster está apagado o `kubectl` apunta a un contexto que ya no existe (por ejemplo, un `docker-desktop` viejo cuando ahora usas OrbStack). No es un error del YAML y `--validate=false` no lo arregla.
+
+```bash
+kubectl config get-contexts              # ¿cuál está activo (*)?
+orb start k8s                            # OrbStack: enciende el clúster (Docker Desktop: Settings → Kubernetes)
+kubectl config use-context orbstack      # o docker-desktop / minikube
+kubectl get nodes                        # debe responder Ready
+```
+
+Opcional: borrar contextos muertos para no volver a caer.
+
+```bash
+kubectl config delete-context docker-desktop
+kubectl config delete-cluster docker-desktop
+```
+
 ### Pod en `ImagePullBackOff` o `ErrImagePull`
 
 ```bash
@@ -393,14 +495,15 @@ kubectl describe pod <pod-name> | grep -A 3 "Events"
 ```
 
 - **Minikube:** carga la imagen con `minikube image load flask-k8s-app:1.0`.
-- Verifica que el nombre y tag en el YAML coinciden con `docker images`.
+- **Docker Desktop / OrbStack:** no hace falta cargar nada; verifica que el nombre y tag en el YAML coinciden con `docker images`.
 - Como alternativa cambia `imagePullPolicy: IfNotPresent` por `Never`.
 
 ### `curl` a `localhost:30080` no responde
 
 ```bash
 kubectl get pods                      # ¿Running y READY 1/1?
-kubectl get endpoints flask-service   # ¿Hay IPs?
+kubectl get endpointslices -l kubernetes.io/service-name=flask-service \
+  -o jsonpath='{range .items[*].endpoints[*]}{.addresses[0]}{"\n"}{end}'   # ¿Hay IPs?
 kubectl logs deployment/flask-app     # ¿Errores de la app?
 ```
 
