@@ -422,17 +422,39 @@ El porcentaje se calcula **sobre el `request`**, no sobre la capacidad del nodo:
 
 Instalar metrics-server:
 
+`minikube addons enable` solo existe en Minikube. En Docker Desktop y en OrbStack no hay addons: se aplica el manifiesto oficial con `kubectl`.
+
 ```bash
 # Minikube
 minikube addons enable metrics-server
 
-# Docker Desktop
+# Docker Desktop y OrbStack
 kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
 kubectl patch deployment metrics-server -n kube-system --type='json' \
   -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
 
-# Esperar ~1 min y comprobar que ya hay métricas
+kubectl rollout status deployment/metrics-server -n kube-system
+```
+
+El `patch` es obligatorio en clústeres locales: el kubelet presenta un certificado autofirmado y, sin esa bandera, metrics-server rechaza la conexión y los Pods quedan en `0/1 Running` con errores de TLS en los logs.
+
+Espera hasta un minuto a que aparezcan las primeras métricas:
+
+```bash
 kubectl top pods
+# NAME                        CPU(cores)   MEMORY(bytes)
+# flask-app-8bb8cbd8b-5prgh   7m           48Mi
+# flask-app-8bb8cbd8b-w525v   11m          47Mi
+```
+
+> Si responde `error: Metrics API not available`, todavía no terminó de arrancar. Espera y repite.
+
+Fíjate en el dato: 7m de consumo con `requests.cpu: 100m` es un 7 %, muy por debajo del objetivo de 50 %. Por eso hace falta generar carga para ver escalar el HPA.
+
+Para desinstalarlo al terminar:
+
+```bash
+kubectl delete -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
 ```
 
 Crear el HPA y generar carga:
