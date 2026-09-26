@@ -1,8 +1,8 @@
 # Laboratorio: GitHub Actions - CI/CD con Python
 
-**Duración estimada:** 90–120 min  
+**Duración estimada:** 150–180 min  
 **Nivel:** Intermedio  
-**Contexto:** En este laboratorio aprenderás a implementar CI/CD con GitHub Actions, desde los conceptos fundamentales hasta un pipeline completo que ejecuta tests, empaqueta la aplicación y genera artefactos automáticamente.
+**Contexto:** En este laboratorio aprenderás a implementar CI/CD con GitHub Actions, desde los conceptos fundamentales hasta un pipeline completo que ejecuta tests, empaqueta la aplicación, despliega a GitHub Pages con aprobación manual y publica releases versionados.
 
 ---
 
@@ -14,6 +14,10 @@
 - Gestionar artefactos y outputs entre jobs
 - Configurar cache para optimizar tiempos de ejecución
 - Aplicar buenas prácticas de seguridad y organización
+- Desplegar a un entorno real (GitHub Pages) con gate de aprobación manual
+- Publicar releases versionados con SemVer
+- Hacer observable el pipeline (summaries, badges, reportes de tests)
+- Relacionar el pipeline con las métricas DORA
 
 ---
 
@@ -32,7 +36,10 @@
 github_actions_demo/
 ├── .github/
 │   └── workflows/
-│       └── devops.yml          # Workflow principal de CI/CD
+│       ├── devops.yml          # Workflow principal de CI/CD
+│       └── release.yml         # Workflow de releases (tags v*)
+├── site/
+│   └── index.html              # Página desplegada en GitHub Pages
 ├── hello.py                    # Aplicación Python simple
 ├── tests/
 │   └── test_hello.py          # Tests unitarios
@@ -979,7 +986,7 @@ Error: Resource not accessible by integration
 ```
 **Solución:** Verificar permisos del token o usar `permissions:` en el workflow.
 
-### 8.2 Debugging
+### 8.3 Debugging
 
 ```yaml
 - name: Debug info
@@ -1042,6 +1049,460 @@ Error: Resource not accessible by integration
 
 ---
 
+## Parte 10: Despliegue Continuo a GitHub Pages
+
+Hasta aquí el pipeline **integra** (tests, empaquetado) pero no **entrega**: el ZIP muere en la pestaña *Artifacts*. En esta parte cerramos el ciclo con un despliegue real y gratuito: una página en **GitHub Pages** que muestra la información del build.
+
+### 10.1 Continuous Delivery vs Continuous Deployment
+
+| Modelo | Qué automatiza | Quién decide el paso a producción |
+|---|---|---|
+| **Continuous Integration** | Build + tests en cada push/PR | Nadie — solo valida |
+| **Continuous Delivery** | Todo lo anterior + artefacto listo para desplegar | Una persona aprueba manualmente |
+| **Continuous Deployment** | Todo lo anterior + despliegue automático | Nadie — el pipeline despliega solo |
+
+En este laboratorio implementarás **Continuous Delivery**: el despliegue queda bloqueado hasta que un revisor lo aprueba desde GitHub.
+
+### 10.2 Diseño de la página de despliegue
+
+Crea el archivo `site/index.html`. Es una plantilla con marcadores `__NOMBRE__` que el pipeline reemplaza en tiempo de despliegue — la página *evidencia* qué build está en producción.
+
+**Diseño:** una sola página, sin dependencias externas (ni CSS ni JS), con la estructura clásica de un sitio personal tipo [Hugo Coder](https://github.com/luizdepra/hugo-coder): navegación arriba, bloque central con avatar + título + subtítulo, ficha de datos, y footer. Modo claro/oscuro automático según el sistema. El avatar se toma de `https://github.com/<usuario>.png`, así cada alumno ve su propia foto en su despliegue.
+
+```html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <title>Hello CI/CD · __BUILD_TAG__</title>
+  <style>
+    /* Paleta del tema Coder (Hugo): claro y oscuro automático */
+    :root {
+      --bg: #fafafa; --text: #212121; --muted: #616161;
+      --link: #1565c0; --border: #e0e0e0; --code-bg: #f0f0f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #212121; --text: #dadada; --muted: #9e9e9e;
+        --link: #42a5f5; --border: #3a3a3a; --code-bg: #2b2b2b;
+      }
+    }
+    * { box-sizing: border-box; }
+    html { font-size: 62.5%; }
+    body {
+      margin: 0; min-height: 100vh; display: flex; flex-direction: column;
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, sans-serif;
+      font-size: 1.6rem; line-height: 1.6;
+    }
+    a { color: var(--link); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Navegación: título a la izquierda, links a la derecha */
+    nav { display: flex; justify-content: space-between; align-items: center;
+          max-width: 80rem; width: 100%; margin: 0 auto; padding: 2rem; }
+    nav .title { font-size: 2rem; font-weight: 500; color: var(--text); }
+    nav ul { list-style: none; display: flex; gap: 2rem; margin: 0; padding: 0; }
+    nav ul a { color: var(--text); }
+
+    /* Bloque central, igual que .about del tema */
+    main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+    .about { text-align: center; max-width: 60rem; width: 100%; }
+    .avatar img { width: 12rem; height: 12rem; border-radius: 50%; object-fit: cover; }
+    .about h1 { font-size: 3.2rem; margin: 2rem 0 .5rem; font-weight: 600; }
+    .about h2 { font-size: 2rem; margin: 0 0 1rem; font-weight: 400; color: var(--muted); }
+    .tag { display: inline-block; font-family: SFMono-Regular, Consolas, Menlo, monospace;
+           font-size: 1.3rem; padding: .3rem 1rem; border: 1px solid var(--border);
+           border-radius: 2rem; color: var(--muted); }
+
+    /* Ficha del despliegue */
+    dl { display: grid; grid-template-columns: max-content 1fr; gap: .6rem 2rem;
+         text-align: left; margin: 3rem auto 0; font-size: 1.5rem; max-width: 44rem; }
+    dt { color: var(--muted); }
+    dd { margin: 0; font-family: SFMono-Regular, Consolas, Menlo, monospace; word-break: break-all; }
+
+    pre { text-align: left; background: var(--code-bg); border-radius: .6rem;
+          padding: 1.6rem; margin: 3rem 0 0; font-size: 1.4rem; overflow-x: auto;
+          font-family: SFMono-Regular, Consolas, Menlo, monospace; line-height: 1.5; }
+
+    footer { text-align: center; font-size: 1.4rem; color: var(--muted); padding: 2rem; }
+    @media (max-width: 480px) { nav { flex-direction: column; gap: 1rem; } dl { grid-template-columns: 1fr; } dt { margin-top: .8rem; } }
+  </style>
+</head>
+<body>
+  <nav>
+    <a class="title" href="__REPO_URL__">github_actions_demo</a>
+    <ul>
+      <li><a href="__REPO_URL__/actions">Actions</a></li>
+      <li><a href="__REPO_URL__/releases">Releases</a></li>
+      <li><a href="__RUN_URL__">Run #__RUN_NUMBER__</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <section class="about">
+      <div class="avatar"><img src="https://github.com/__ACTOR__.png?size=240" alt="avatar de __ACTOR__"></div>
+      <h1>Hello, GitHub Actions!</h1>
+      <h2>Desplegado automáticamente con CI/CD</h2>
+      <span class="tag">__BUILD_TAG__</span>
+
+      <dl>
+        <dt>Commit</dt>         <dd><a href="__COMMIT_URL__">__COMMIT_SHORT__</a></dd>
+        <dt>Rama</dt>           <dd>__BRANCH__</dd>
+        <dt>Desplegado por</dt> <dd><a href="https://github.com/__ACTOR__">__ACTOR__</a></dd>
+        <dt>Fecha (UTC)</dt>    <dd>__DATE__</dd>
+      </dl>
+
+      <pre>$ python hello.py
+__APP_OUTPUT__</pre>
+    </section>
+  </main>
+
+  <footer>
+    © 2026 UTEC · DevOps y GitHub Actions · Powered by <a href="https://docs.github.com/en/actions">GitHub Actions</a> &amp; <a href="https://pages.github.com/">Pages</a>
+  </footer>
+</body>
+</html>
+```
+
+**Marcadores que reemplaza el pipeline:**
+
+| Marcador | Origen |
+|---|---|
+| `__BUILD_TAG__` | `needs.test.outputs.build_tag` |
+| `__COMMIT_SHORT__` / `__COMMIT_URL__` | `github.sha` |
+| `__BRANCH__` | `github.ref_name` |
+| `__ACTOR__` | `github.actor` |
+| `__DATE__` | `date -u` en el runner |
+| `__RUN_URL__` / `__RUN_NUMBER__` | `github.run_id`, `github.run_number` |
+| `__REPO_URL__` | `github.server_url` + `github.repository` |
+| `__APP_OUTPUT__` | salida real de `python hello.py` |
+
+### 10.3 Configurar GitHub Pages
+
+1. El repositorio debe ser **público** (Pages y las reglas de protección de entornos son gratuitas solo en repos públicos).
+2. Ve a **Settings → Pages → Build and deployment → Source** y elige **GitHub Actions**.
+3. No hace falta crear una rama `gh-pages`: el despliegue se hace con artefactos.
+
+> ℹ️ **¿Ya tienes una página en `https://<usuario>.github.io/`?** No se sobreescribe. GitHub Pages distingue dos tipos de sitio:
+>
+> | Tipo | Repositorio | URL publicada |
+> |---|---|---|
+> | **User site** | `<usuario>.github.io` | `https://<usuario>.github.io/` |
+> | **Project site** | cualquier otro repo (este lab) | `https://<usuario>.github.io/<repo>/` |
+>
+> Cada repositorio con Pages activo publica en su propia subruta. Este laboratorio queda en `https://<usuario>.github.io/github_actions_demo/` y tu portafolio personal sigue en la raíz. Si no tienes user site, la URL del proyecto funciona igual.
+
+> ⚠️ **Error común:** Si tu página personal usa rutas absolutas (`/css/style.css`), no afecta al lab — pero si en el futuro agregas CSS o imágenes a `site/`, usa rutas **relativas** (`./style.css`), porque el sitio no está en `/` sino en `/<repo>/`.
+
+### 10.4 Job `deploy`
+
+Agrega este job al final de `devops.yml`:
+
+```yaml
+  deploy:
+    needs: [test, package]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read      # checkout (un bloque permissions por job deja en none lo que no lista)
+      pages: write        # publicar en Pages
+      id-token: write     # token temporal que exige actions/deploy-pages
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}   # aparece como link en la UI
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Render page
+        env:
+          BUILD_TAG: ${{ needs.test.outputs.build_tag }}
+          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          mkdir -p public
+          export APP_OUTPUT=$(python hello.py)
+          sed \
+            -e "s|__BUILD_TAG__|${BUILD_TAG}|g" \
+            -e "s|__COMMIT_SHORT__|${GITHUB_SHA::7}|g" \
+            -e "s|__COMMIT_URL__|${COMMIT_URL}|g" \
+            -e "s|__BRANCH__|${GITHUB_REF_NAME}|g" \
+            -e "s|__ACTOR__|${GITHUB_ACTOR}|g" \
+            -e "s|__DATE__|$(date -u '+%Y-%m-%d %H:%M:%S')|g" \
+            -e "s|__RUN_URL__|${RUN_URL}|g" \
+            -e "s|__RUN_NUMBER__|${GITHUB_RUN_NUMBER}|g" \
+            -e "s|__REPO_URL__|${REPO_URL}|g" \
+            site/index.html > public/index.html
+          # __APP_OUTPUT__ es multilínea: se reemplaza con Python
+          python - <<'PY'
+          import os, pathlib
+          p = pathlib.Path("public/index.html")
+          p.write_text(p.read_text().replace("__APP_OUTPUT__", os.environ["APP_OUTPUT"]))
+          PY
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+```
+
+> ⚠️ **Error común:** `sed` con `|` como delimitador falla si algún valor contiene `|`. Los valores de GitHub (SHA, rama, actor) no lo contienen, pero la salida del programa sí podría — por eso `__APP_OUTPUT__` se reemplaza con Python.
+
+> ⚠️ **Error común:** Sin `export`, el bloque Python no ve `APP_OUTPUT` y falla con `KeyError: 'APP_OUTPUT'`. Las variables de shell no pasan a subprocesos salvo que se exporten.
+
+**Conceptos clave:**
+
+#### **`environment:`**
+- Agrupa despliegues por destino (`github-pages`, `staging`, `production`)
+- Cada entorno tiene **su propio historial de despliegues**, **sus propios secrets** y **reglas de protección**
+- `url:` hace que GitHub muestre un botón "View deployment" en la ejecución y en el PR
+
+#### **`permissions:` a nivel de job**
+- Solo el job `deploy` obtiene `pages: write` e `id-token: write`
+- Los jobs `test` y `package` siguen con el mínimo (`contents: read`)
+- Un bloque `permissions:` en un job **reemplaza** al global: todo permiso que no listes queda en `none`. Por eso `deploy` repite `contents: read`.
+
+> ⚠️ **Error común:** `deploy` sin `contents: read` en un repo **privado** falla en el checkout con `remote: Repository not found`. El token del job no puede leer el código. En repo público no se nota porque el clone es anónimo.
+
+#### **Cadena de actions de Pages**
+```
+configure-pages  →  upload-pages-artifact  →  deploy-pages
+(lee config)        (empaqueta ./public)      (publica y devuelve page_url)
+```
+
+### 10.5 Gate de aprobación manual
+
+Convierte el despliegue automático en **Continuous Delivery**:
+
+1. **Settings → Environments → github-pages**
+2. Activa **Required reviewers** y agrégate a ti mismo (o a un compañero)
+3. Guarda y haz push a `main`
+
+Ahora el job `deploy` queda en estado 🟡 **Waiting** hasta que alguien pulse **Review deployments → Approve and deploy**.
+
+```
+test ──► package ──► deploy ⏸️ (esperando aprobación)
+docs ──────────────────────┘
+```
+
+**Ejercicio:** Rechaza un despliegue (**Reject**). Observa que el workflow termina como fallido y la página anterior sigue publicada — eso es un *rollback implícito*: nunca se sobreescribió producción.
+
+### 10.6 Verificar
+
+1. Abre la URL que aparece en el job `deploy` (formato `https://<usuario>.github.io/<repo>/`)
+2. Confirma que el **build tag** de la página coincide con el nombre del ZIP en *Artifacts*
+3. Haz un cambio en `hello.py` (por ejemplo, el saludo), push, aprueba, y verifica que la página cambió
+4. Cambia el tema de tu sistema operativo a oscuro y recarga: la página debe adaptarse sin JavaScript (`prefers-color-scheme`)
+
+---
+
+## Parte 11: Releases y Versionado Semántico
+
+El build tag `20250925-143000-a1b2c3d` identifica un build, pero no comunica nada al usuario. Para eso existen las **versiones** y los **releases**.
+
+### 11.1 Versionado semántico (SemVer)
+
+```
+v1.4.2
+ │ │ └── PATCH: corrección de bug, sin cambios de API
+ │ └──── MINOR: nueva funcionalidad compatible hacia atrás
+ └────── MAJOR: cambio incompatible
+```
+
+### 11.2 Workflow `release.yml`
+
+Crea un **segundo workflow** que solo se dispara con tags `v*`:
+
+```yaml
+# .github/workflows/release.yml
+name: Release
+run-name: "Release ${{ github.ref_name }} por ${{ github.actor }}"
+
+on:
+  push:
+    tags: [ "v*" ]          # solo tags que empiecen con v: v1.0.0, v2.1.3-beta
+
+permissions:
+  contents: write           # necesario para crear el release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run tests
+        run: |
+          pip install -r requirements.txt
+          export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+          pytest -q
+
+      - name: Build package
+        run: |
+          mkdir -p dist
+          cp hello.py dist/
+          cd dist && zip "app-${GITHUB_REF_NAME}.zip" hello.py
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/*.zip \
+            --title "Release $GITHUB_REF_NAME" \
+            --generate-notes
+```
+
+**Conceptos clave:**
+
+#### **`on: push: tags:`**
+- Un tag es un push, pero el filtro `tags:` lo separa del `branches:` del workflow principal
+- `devops.yml` **no** se dispara con tags porque filtra `branches: [main]`
+
+#### **`gh` CLI**
+- Viene preinstalado en runners `ubuntu-latest`
+- `github.token` es el `GITHUB_TOKEN` automático: no hay que crear ningún secret
+- `--generate-notes` arma el changelog con los PRs mergeados desde el tag anterior
+
+### 11.3 Publicar una versión
+
+```bash
+git tag -a v1.0.0 -m "Primera versión estable"
+git push origin v1.0.0
+```
+
+Verifica en la pestaña **Releases** del repositorio: debe aparecer `v1.0.0` con `app-v1.0.0.zip` adjunto y notas generadas.
+
+> ⚠️ **Error común:** `git push` sin el tag. Los tags no se suben con un push normal; usa `git push origin v1.0.0` o `git push --tags`.
+
+**Ejercicio:** Corrige un bug ficticio en `hello.py`, abre PR, mergea, publica `v1.0.1` y compara las notas generadas con las de `v1.0.0`.
+
+---
+
+## Parte 12: Observabilidad del Pipeline
+
+Un pipeline que solo dice ✅ o ❌ obliga a leer logs. Estas mejoras hacen que el resultado se entienda **sin abrir el log**.
+
+### 12.1 Job Summary
+
+`$GITHUB_STEP_SUMMARY` acepta Markdown y lo muestra en la página del run:
+
+```yaml
+      - name: Publish summary
+        if: always()                         # también cuando fallan los tests
+        run: |
+          {
+            echo "## 🧪 Resultado del job test"
+            echo ""
+            echo "| Campo | Valor |"
+            echo "|---|---|"
+            echo "| Build tag | \`${{ steps.meta.outputs.tag }}\` |"
+            echo "| Python | $(python --version) |"
+            echo "| Tests | $(grep -o 'tests="[0-9]*"' report.xml | head -1) |"
+            echo "| Fallos | $(grep -o 'failures="[0-9]*"' report.xml | head -1) |"
+            echo "| Estado | ${{ job.status }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+```
+
+Para que `report.xml` exista, cambia el step de tests:
+
+```yaml
+      - name: Run tests
+        run: |
+          export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+          pytest -q --junitxml=report.xml
+
+      - name: Upload test report
+        if: always()                         # el reporte es más útil cuando falla
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: report.xml
+```
+
+> ⚠️ **Error común:** Sin `if: always()` el step de summary no corre cuando fallan los tests — justo cuando más lo necesitas. Por defecto los steps se saltan tras un fallo.
+
+### 12.2 Badge de estado en el README
+
+```markdown
+![CI](https://github.com/<usuario>/<repo>/actions/workflows/devops.yml/badge.svg)
+![Release](https://img.shields.io/github/v/release/<usuario>/<repo>)
+```
+
+Muestra el último estado de `main` y la última versión publicada sin entrar a Actions.
+
+### 12.3 Límites de tiempo
+
+```yaml
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10                      # por defecto son 360 (6 horas)
+```
+
+Un job colgado consume minutos de la cuota. Fija límites realistas: el job `test` de este lab tarda menos de 2 minutos.
+
+### 12.4 Funciones de estado
+
+| Función | Cuándo corre el step |
+|---|---|
+| `success()` | (por defecto) todos los steps anteriores OK |
+| `failure()` | algún step anterior falló |
+| `always()` | siempre, incluso si se canceló el workflow |
+| `cancelled()` | solo si el workflow fue cancelado |
+
+**Ejercicio:** Rompe un test a propósito, haz push y verifica que: el summary aparece con `Fallos: 1`, el artefacto `test-report` existe, el badge del README cambia a *failing*, y el job `deploy` **no** se ejecuta.
+
+---
+
+## Parte 13: Métricas DORA
+
+Las **métricas DORA** (DevOps Research and Assessment) son el estándar para medir si una práctica DevOps funciona. Todo lo que construiste en este lab alimenta alguna de las cuatro.
+
+| Métrica | Qué mide | Dónde verla en GitHub | Qué la mejora en tu pipeline |
+|---|---|---|---|
+| **Deployment Frequency** | Cuántas veces despliegas a producción | Settings → Environments → github-pages → historial | Job `deploy` automático en cada push a `main` (Parte 10) |
+| **Lead Time for Changes** | Tiempo desde el commit hasta producción | Fecha del commit vs. fecha del deployment | Cache (Parte 2), jobs paralelos (Parte 6), tiempos cortos |
+| **Change Failure Rate** | % de despliegues que fallan o requieren rollback | Runs fallidos / runs totales en Actions | Tests + lint como gate (`needs`), aprobación manual (10.5) |
+| **Time to Restore** | Cuánto tardas en recuperar producción tras un fallo | Tiempo entre run fallido y siguiente run exitoso | Releases versionados (Parte 11) permiten redesplegar una versión anterior |
+
+**Niveles de referencia (State of DevOps Report):**
+
+| Nivel | Deployment Frequency | Lead Time | Change Failure Rate | Time to Restore |
+|---|---|---|---|---|
+| Elite | Varias veces al día | < 1 hora | 0–15% | < 1 hora |
+| Alto | 1/día – 1/semana | 1 día – 1 semana | 16–30% | < 1 día |
+| Medio | 1/semana – 1/mes | 1 semana – 1 mes | 16–30% | 1 día – 1 semana |
+| Bajo | < 1/mes | > 1 mes | > 30% | > 1 semana |
+
+**Ejercicio:** Con el historial de tu repositorio al terminar el lab, calcula las cuatro métricas y ubica tu pipeline en un nivel. Justifica cuál de las cuatro cambiaría más si eliminas el gate de aprobación de 10.5, y en qué dirección.
+
+---
+
 ## Checklist de Éxito
 
 - [ ] Workflow se ejecuta correctamente en push y PR
@@ -1051,25 +1512,36 @@ Error: Resource not accessible by integration
 - [ ] Jobs se ejecutan en el orden correcto (dependencias)
 - [ ] Logs son claros y útiles para debugging
 - [ ] Secrets se manejan de forma segura
+- [ ] Página publicada en GitHub Pages muestra el build tag correcto
+- [ ] Job `deploy` espera aprobación manual (environment con required reviewers)
+- [ ] Release `v1.0.0` creado con el ZIP adjunto y notas generadas
+- [ ] Job summary y badge reflejan el estado real del pipeline
+- [ ] Métricas DORA calculadas a partir del historial del repositorio
 
 ---
 
 ## Entregables
 
 1. **Repositorio GitHub** con:
-   - Workflow funcional (`.github/workflows/devops.yml`)
+   - Workflow funcional (`.github/workflows/devops.yml`) con job `deploy`
+   - Workflow de releases (`.github/workflows/release.yml`)
+   - Página de despliegue (`site/index.html`)
    - Código Python con tests
-   - README con instrucciones
+   - README con instrucciones y badges de estado
 
 2. **Capturas de pantalla:**
    - Ejecución exitosa del workflow
    - Logs de cada job
    - Artefactos generados
+   - Job `deploy` en estado *Waiting* y luego aprobado
+   - Página publicada en GitHub Pages
+   - Release `v1.0.0` en la pestaña Releases
 
 3. **Evidencias de funcionamiento:**
    - Historial de ejecuciones en GitHub Actions
    - Artefactos descargables
    - Tests pasando en múltiples configuraciones
+   - Tabla con las cuatro métricas DORA y el nivel alcanzado
 
 ---
 
@@ -1080,6 +1552,11 @@ Error: Resource not accessible by integration
 - [GitHub Actions Examples](https://github.com/actions/starter-workflows)
 - [GitHub Actions Secrets](https://docs.github.com/en/actions/security-guides/encrypted-secrets)
 - [Best Practices for GitHub Actions](https://docs.github.com/en/actions/learn-github-actions/best-practices-for-github-actions)
+- [Deploying with GitHub Actions to Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)
+- [Environments and deployment protection rules](https://docs.github.com/en/actions/managing-workflow-runs-and-deployments/managing-deployments/managing-environments-for-deployment)
+- [Managing releases](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository)
+- [Job summaries](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#adding-a-job-summary)
+- [DORA metrics](https://dora.dev/guides/dora-metrics-four-keys/)
 
 ---
 
