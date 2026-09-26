@@ -1283,6 +1283,10 @@ Agrega este job al final de `devops.yml`:
 
 > ⚠️ **Error común:** `deploy` sin `contents: read` en un repo **privado** falla en el checkout con `remote: Repository not found`. El token del job no puede leer el código. En repo público no se nota porque el clone es anónimo.
 
+> ⚠️ **Error común:** `Get Pages site failed ... Not Found` en `actions/configure-pages` significa que falta el paso 10.3: Settings → Pages → Source → **GitHub Actions**.
+
+> ⚠️ **Error común:** `Branch "main" is not allowed to deploy to github-pages due to environment protection rules`. GitHub crea el environment `github-pages` con ramas restringidas. Ve a Settings → Environments → `github-pages` → **Deployment branches and tags** → *No restriction*, o agrega `main` a la lista. Luego *Re-run failed jobs*.
+
 #### **Cadena de actions de Pages**
 ```
 configure-pages  →  upload-pages-artifact  →  deploy-pages
