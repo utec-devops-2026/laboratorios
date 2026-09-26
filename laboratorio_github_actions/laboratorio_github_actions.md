@@ -1553,7 +1553,7 @@ Agrega la fila de cobertura al summary de 12.1:
             echo "| Cobertura | $(python -c "import xml.etree.ElementTree as ET; print(f\"{float(ET.parse('coverage.xml').getroot().get('line-rate'))*100:.0f}%\")" 2>/dev/null || echo n/a) (mínimo 80%) |"
 ```
 
-**Ejercicio:** Agrega a `hello.py` una función `multiply(a, b)` sin test. Push. Observa la cobertura resultante y si el gate pasa o falla. Luego agrega el test y verifica que vuelve a 100%. Pregunta: ¿con cuántas funciones sin test el gate empezaría a fallar?
+**Ejercicio:** Agrega a `hello.py` una función `multiply(a, b)` sin test. Push. Observa la cobertura resultante y si el gate pasa o falla. Luego agrega el test y verifica que vuelve a 100%. Preguntas: ¿con cuántas funciones así, sin test, el gate empezaría a fallar? ¿Y si la función nueva tuviera cuatro ramas `if`? Pista: el gate cuenta **sentencias** sin ejecutar, no funciones, y `fail_under = 80` falla solo cuando la cobertura es **menor** a 80, no igual.
 
 ---
 
