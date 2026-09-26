@@ -17,6 +17,7 @@
 - Desplegar a un entorno real (GitHub Pages) con gate de aprobación manual
 - Publicar releases versionados con SemVer
 - Hacer observable el pipeline (summaries, badges, reportes de tests)
+- Aplicar un quality gate de cobertura mínima (80%) que bloquee el despliegue
 - Relacionar el pipeline con las métricas DORA
 
 ---
@@ -44,6 +45,7 @@ github_actions_demo/
 ├── tests/
 │   └── test_hello.py          # Tests unitarios
 ├── requirements.txt            # Dependencias Python
+├── .coveragerc                 # Umbral de cobertura y exclusiones
 └── README.md                   # Documentación del proyecto
 ```
 
@@ -1481,6 +1483,78 @@ Un job colgado consume minutos de la cuota. Fija límites realistas: el job `tes
 
 **Ejercicio:** Rompe un test a propósito, haz push y verifica que: el summary aparece con `Fallos: 1`, el artefacto `test-report` existe, el badge del README cambia a *failing*, y el job `deploy` **no** se ejecuta.
 
+### 12.5 Quality gate: cobertura mínima 80%
+
+Que los tests pasen no dice cuánto código ejercitan. Un **quality gate** convierte la cobertura en condición de paso: si baja del umbral, el job falla y `deploy` no corre.
+
+`pytest-cov` ya está en `requirements.txt`. Cambia el step de tests:
+
+```yaml
+      - name: Run tests with coverage gate
+        run: |
+          export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+          pytest -q --junitxml=report.xml \
+            --cov --cov-report=term-missing --cov-report=xml \
+            --cov-fail-under=80
+
+      - name: Upload test and coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: |
+            report.xml
+            coverage.xml
+```
+
+| Flag | Qué hace |
+|---|---|
+| `--cov` | mide cobertura de los módulos definidos en `.coveragerc` |
+| `--cov-report=term-missing` | en el log, muestra qué líneas no se ejecutaron |
+| `--cov-report=xml` | genera `coverage.xml` para el summary y el artefacto |
+| `--cov-fail-under=80` | **el gate**: exit code 1 si la cobertura total es menor a 80% |
+
+Haz push y mira el log. El job **falla**:
+
+```
+Name       Stmts   Miss  Cover   Missing
+----------------------------------------
+hello.py      10      3    70%   14-16
+FAIL Required test coverage of 80% not reached. Total coverage: 70.00%
+```
+
+**¿Por qué 70%?** Las líneas 14–16 son el bloque `if __name__ == "__main__":`. Los tests importan `hello` pero nunca lo ejecutan como script. Es código de arranque, no lógica de negocio: no tiene sentido testearlo. Se excluye con un archivo `.coveragerc` en la raíz:
+
+```ini
+[run]
+source = hello
+
+[report]
+fail_under = 80
+show_missing = true
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+```
+
+- `source`: qué medir. Con esto `--cov` no necesita argumento.
+- `fail_under`: mismo umbral que el flag, ahora también aplica en local.
+- `exclude_lines`: patrones regex; las líneas que coinciden (y su bloque) no cuentan. `pragma: no cover` permite excluir líneas puntuales con un comentario.
+
+Push de nuevo: `Total coverage: 100.00%` y el gate pasa.
+
+> ⚠️ **Error común:** excluir código con `pragma: no cover` para "arreglar" el gate. El umbral existe para obligar a escribir tests, no para esconder código sin probar. Solo excluye lo que por naturaleza no se testea: bloques `__main__`, código defensivo imposible de alcanzar, stubs de plataforma.
+
+> ⚠️ **Error común:** `--cov-fail-under` mide la cobertura **total**, no por archivo. Un módulo al 100% puede tapar otro al 20%. Revisa siempre la columna `Cover` por archivo en el log.
+
+Agrega la fila de cobertura al summary de 12.1:
+
+```yaml
+            echo "| Cobertura | $(python -c "import xml.etree.ElementTree as ET; print(f\"{float(ET.parse('coverage.xml').getroot().get('line-rate'))*100:.0f}%\")" 2>/dev/null || echo n/a) (mínimo 80%) |"
+```
+
+**Ejercicio:** Agrega a `hello.py` una función `multiply(a, b)` sin test. Push. Observa la cobertura resultante y si el gate pasa o falla. Luego agrega el test y verifica que vuelve a 100%. Pregunta: ¿con cuántas funciones sin test el gate empezaría a fallar?
+
 ---
 
 ## Parte 13: Métricas DORA
@@ -1520,6 +1594,7 @@ Las **métricas DORA** (DevOps Research and Assessment) son el estándar para me
 - [ ] Job `deploy` espera aprobación manual (environment con required reviewers)
 - [ ] Release `v1.0.0` creado con el ZIP adjunto y notas generadas
 - [ ] Job summary y badge reflejan el estado real del pipeline
+- [ ] Gate de cobertura ≥ 80% activo: el job `test` falla si baja del umbral
 - [ ] Métricas DORA calculadas a partir del historial del repositorio
 
 ---
@@ -1545,6 +1620,7 @@ Las **métricas DORA** (DevOps Research and Assessment) son el estándar para me
    - Historial de ejecuciones en GitHub Actions
    - Artefactos descargables
    - Tests pasando en múltiples configuraciones
+   - Captura del gate de cobertura: un run fallido por cobertura < 80% y uno exitoso
    - Tabla con las cuatro métricas DORA y el nivel alcanzado
 
 ---
@@ -1560,6 +1636,8 @@ Las **métricas DORA** (DevOps Research and Assessment) son el estándar para me
 - [Environments and deployment protection rules](https://docs.github.com/en/actions/managing-workflow-runs-and-deployments/managing-deployments/managing-environments-for-deployment)
 - [Managing releases](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository)
 - [Job summaries](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#adding-a-job-summary)
+- [pytest-cov: reporting and fail-under](https://pytest-cov.readthedocs.io/en/latest/reporting.html)
+- [Coverage.py: excluding code](https://coverage.readthedocs.io/en/latest/excluding.html)
 - [DORA metrics](https://dora.dev/guides/dora-metrics-four-keys/)
 
 ---
