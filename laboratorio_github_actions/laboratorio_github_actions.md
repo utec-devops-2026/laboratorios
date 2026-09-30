@@ -18,7 +18,6 @@
 - Publicar releases versionados con SemVer
 - Hacer observable el pipeline (summaries, badges, reportes de tests)
 - Aplicar un quality gate de cobertura mínima (80%) que bloquee el despliegue
-- Relacionar el pipeline con las métricas DORA
 
 ---
 
@@ -1619,30 +1618,6 @@ Agrega la fila de cobertura al summary de 12.1:
 
 ---
 
-## Parte 13: Métricas DORA
-
-Las **métricas DORA** (DevOps Research and Assessment) son el estándar para medir si una práctica DevOps funciona. Todo lo que construiste en este lab alimenta alguna de las cuatro.
-
-| Métrica | Qué mide | Dónde verla en GitHub | Qué la mejora en tu pipeline |
-|---|---|---|---|
-| **Deployment Frequency** | Cuántas veces despliegas a producción | Settings → Environments → github-pages → historial | Job `deploy` automático en cada push a `main` (Parte 10) |
-| **Lead Time for Changes** | Tiempo desde el commit hasta producción | Fecha del commit vs. fecha del deployment | Cache (Parte 2), jobs paralelos (Parte 6), tiempos cortos |
-| **Change Failure Rate** | % de despliegues que fallan o requieren rollback | Runs fallidos / runs totales en Actions | Tests + lint como gate (`needs`), aprobación manual (10.6) |
-| **Time to Restore** | Cuánto tardas en recuperar producción tras un fallo | Tiempo entre run fallido y siguiente run exitoso | Releases versionados (Parte 11) permiten redesplegar una versión anterior |
-
-**Niveles de referencia (State of DevOps Report):**
-
-| Nivel | Deployment Frequency | Lead Time | Change Failure Rate | Time to Restore |
-|---|---|---|---|---|
-| Elite | Varias veces al día | < 1 hora | 0–15% | < 1 hora |
-| Alto | 1/día – 1/semana | 1 día – 1 semana | 16–30% | < 1 día |
-| Medio | 1/semana – 1/mes | 1 semana – 1 mes | 16–30% | 1 día – 1 semana |
-| Bajo | < 1/mes | > 1 mes | > 30% | > 1 semana |
-
-**Ejercicio:** Con el historial de tu repositorio al terminar el lab, calcula las cuatro métricas y ubica tu pipeline en un nivel. Justifica cuál de las cuatro cambiaría más si eliminas el gate de aprobación de 10.6, y en qué dirección.
-
----
-
 ## Checklist de Éxito
 
 - [ ] Workflow se ejecuta correctamente en push y PR
@@ -1657,7 +1632,6 @@ Las **métricas DORA** (DevOps Research and Assessment) son el estándar para me
 - [ ] Release `v1.0.0` creado con el ZIP adjunto y notas generadas
 - [ ] Job summary y badge reflejan el estado real del pipeline
 - [ ] Gate de cobertura ≥ 80% activo: el job `test` falla si baja del umbral
-- [ ] Métricas DORA calculadas a partir del historial del repositorio
 
 ---
 
@@ -1683,7 +1657,6 @@ Las **métricas DORA** (DevOps Research and Assessment) son el estándar para me
    - Artefactos descargables
    - Tests pasando en múltiples configuraciones
    - Captura del gate de cobertura: un run fallido por cobertura < 80% y uno exitoso
-   - Tabla con las cuatro métricas DORA y el nivel alcanzado
 
 ---
 
@@ -1700,7 +1673,6 @@ Las **métricas DORA** (DevOps Research and Assessment) son el estándar para me
 - [Job summaries](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#adding-a-job-summary)
 - [pytest-cov: reporting and fail-under](https://pytest-cov.readthedocs.io/en/latest/reporting.html)
 - [Coverage.py: excluding code](https://coverage.readthedocs.io/en/latest/excluding.html)
-- [DORA metrics](https://dora.dev/guides/dora-metrics-four-keys/)
 
 ---
 
