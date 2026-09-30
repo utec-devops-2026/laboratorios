@@ -1287,7 +1287,7 @@ Agrega este job al final de `devops.yml`:
 
 > ⚠️ **Error común:** `Get Pages site failed ... Not Found` en `actions/configure-pages` significa que falta el paso 10.3: Settings → Pages → Source → **GitHub Actions**.
 
-> ⚠️ **Error común:** `Branch "main" is not allowed to deploy to github-pages due to environment protection rules`. GitHub crea el environment `github-pages` con ramas restringidas. Ve a Settings → Environments → `github-pages` → **Deployment branches and tags** → *No restriction*, o agrega `main` a la lista. Luego *Re-run failed jobs*.
+> ⚠️ **Error común:** `Branch "main" is not allowed to deploy to github-pages due to environment protection rules`. El job `deploy` falla en ~2 s sin ejecutar ningún step. Diagnóstico y solución paso a paso en **10.5**.
 
 #### **Cadena de actions de Pages**
 ```
@@ -1295,7 +1295,69 @@ configure-pages  →  upload-pages-artifact  →  deploy-pages
 (lee config)        (empaqueta ./public)      (publica y devuelve page_url)
 ```
 
-### 10.5 Gate de aprobación manual
+### 10.5 Diagnóstico: `deploy` rechazado por reglas del entorno
+
+Este es el fallo más frecuente del laboratorio. Reconócelo por tres síntomas:
+
+| Síntoma | Dónde se ve |
+|---|---|
+| `test`, `package` y `docs` en verde; solo `deploy` en rojo | Grafo del run |
+| `deploy` dura **2 s** y su log está vacío ("This job failed") | Pestaña del job |
+| **Annotations → 2 errors** | Cabecera del job |
+
+![Run con deploy fallido](img/deploy-failed-run.png)
+
+![Job deploy sin steps y con 2 anotaciones](img/deploy-failed-annotations.png)
+
+Abre **Annotations**. Los dos mensajes son:
+
+```
+Branch "main" is not allowed to deploy to github-pages due to environment protection rules.
+The deployment was rejected or didn't satisfy other protection rules.
+```
+
+**Por qué pasa.** GitHub evalúa las reglas del `environment:` **antes** de arrancar el runner. Si la rama que dispara el workflow no está en la lista de ramas permitidas del entorno, el job se rechaza sin ejecutar ni un step — por eso no hay logs. Normalmente ocurre por dos causas combinadas:
+
+1. **Pages sigue desactivado** (Settings → Pages muestra *"GitHub Pages is currently disabled"* con Source = *Deploy from a branch*). Se saltó el paso 10.3.
+2. El entorno `github-pages` **ya existía** con una lista de ramas restringida: por ejemplo, se creó en un intento anterior desde una rama `feature/...` y `main` nunca se agregó.
+
+![Pages desactivado](img/pages-disabled.png)
+
+**Solución (interfaz web):**
+
+1. **Settings → Pages → Build and deployment → Source** → elige **GitHub Actions**. Esto crea (o reutiliza) el entorno `github-pages`.
+2. **Settings → Environments** → entra a **github-pages**.
+
+   ![Lista de entornos](img/environments-list.png)
+
+3. Baja hasta **Deployment branches and tags**. Con *Selected branches and tags*, pulsa **Add deployment branch or tag rule** y escribe `main`. Alternativa: cambia el selector a *No restriction* (menos seguro, pero válido para el lab).
+
+   ![main agregado a las ramas permitidas](img/environment-deployment-branches.png)
+
+4. Vuelve al run fallido → **Re-run jobs → Re-run failed jobs**. No hace falta un push nuevo: `test` y `package` no se repiten y `deploy` toma sus outputs.
+
+**Solución (CLI, equivalente):**
+
+```bash
+REPO=<usuario>/<repo>
+
+# 1. Activar Pages con source = GitHub Actions
+gh api -X POST repos/$REPO/pages -f build_type=workflow
+
+# 2. Permitir main en el entorno github-pages
+gh api -X POST repos/$REPO/environments/github-pages/deployment-branch-policies \
+  -f name=main -f type=branch
+
+# 3. Ver las anotaciones del job y relanzar solo lo fallido
+gh run view <run-id> --repo $REPO --log-failed
+gh run rerun <run-id> --repo $REPO --failed
+```
+
+**Verificación:** el re-run debe mostrar los cuatro jobs en verde y `deploy` publica la URL `https://<usuario>.github.io/<repo>/`. Compruébala con `curl -I` (espera `HTTP/2 200`).
+
+> ℹ️ **Relación con 10.6:** *Deployment branches* y *Required reviewers* son las dos reglas de protección del mismo entorno. La primera responde "¿desde qué rama se puede desplegar?"; la segunda, "¿quién debe aprobar?". Un job puede fallar por la primera o quedar en espera por la segunda.
+
+### 10.6 Gate de aprobación manual
 
 Convierte el despliegue automático en **Continuous Delivery**:
 
@@ -1312,7 +1374,7 @@ docs ──────────────────────┘
 
 **Ejercicio:** Rechaza un despliegue (**Reject**). Observa que el workflow termina como fallido y la página anterior sigue publicada — eso es un *rollback implícito*: nunca se sobreescribió producción.
 
-### 10.6 Verificar
+### 10.7 Verificar
 
 1. Abre la URL que aparece en el job `deploy` (formato `https://<usuario>.github.io/<repo>/`)
 2. Confirma que el **build tag** de la página coincide con el nombre del ZIP en *Artifacts*
@@ -1565,7 +1627,7 @@ Las **métricas DORA** (DevOps Research and Assessment) son el estándar para me
 |---|---|---|---|
 | **Deployment Frequency** | Cuántas veces despliegas a producción | Settings → Environments → github-pages → historial | Job `deploy` automático en cada push a `main` (Parte 10) |
 | **Lead Time for Changes** | Tiempo desde el commit hasta producción | Fecha del commit vs. fecha del deployment | Cache (Parte 2), jobs paralelos (Parte 6), tiempos cortos |
-| **Change Failure Rate** | % de despliegues que fallan o requieren rollback | Runs fallidos / runs totales en Actions | Tests + lint como gate (`needs`), aprobación manual (10.5) |
+| **Change Failure Rate** | % de despliegues que fallan o requieren rollback | Runs fallidos / runs totales en Actions | Tests + lint como gate (`needs`), aprobación manual (10.6) |
 | **Time to Restore** | Cuánto tardas en recuperar producción tras un fallo | Tiempo entre run fallido y siguiente run exitoso | Releases versionados (Parte 11) permiten redesplegar una versión anterior |
 
 **Niveles de referencia (State of DevOps Report):**
@@ -1577,7 +1639,7 @@ Las **métricas DORA** (DevOps Research and Assessment) son el estándar para me
 | Medio | 1/semana – 1/mes | 1 semana – 1 mes | 16–30% | 1 día – 1 semana |
 | Bajo | < 1/mes | > 1 mes | > 30% | > 1 semana |
 
-**Ejercicio:** Con el historial de tu repositorio al terminar el lab, calcula las cuatro métricas y ubica tu pipeline en un nivel. Justifica cuál de las cuatro cambiaría más si eliminas el gate de aprobación de 10.5, y en qué dirección.
+**Ejercicio:** Con el historial de tu repositorio al terminar el lab, calcula las cuatro métricas y ubica tu pipeline en un nivel. Justifica cuál de las cuatro cambiaría más si eliminas el gate de aprobación de 10.6, y en qué dirección.
 
 ---
 
