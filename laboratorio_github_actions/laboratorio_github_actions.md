@@ -1618,6 +1618,55 @@ Agrega la fila de cobertura al summary de 12.1:
 
 ---
 
+## Parte 13 (opcional): Métricas DORA
+
+> ℹ️ Esta parte **no es entregable**. Sirve para conectar lo que construiste con cómo se mide DevOps en la industria.
+
+Las **métricas DORA** (DevOps Research and Assessment) son el estándar para medir si una práctica DevOps funciona. Todo lo que construiste en este lab alimenta alguna de las cuatro.
+
+| Métrica | Qué mide | Dónde verla en GitHub | Qué la mejora en tu pipeline |
+|---|---|---|---|
+| **Deployment Frequency** | Cuántas veces despliegas a producción | Settings → Environments → github-pages → historial | Job `deploy` automático en cada push a `main` (Parte 10) |
+| **Lead Time for Changes** | Tiempo desde el commit hasta producción | Fecha del commit vs. fecha del deployment | Cache (Parte 2), jobs paralelos (Parte 6), tiempos cortos |
+| **Change Failure Rate** | % de despliegues que fallan o requieren rollback | Runs fallidos / runs totales en Actions | Tests + lint como gate (`needs`), aprobación manual (10.6) |
+| **Time to Restore** | Cuánto tardas en recuperar producción tras un fallo | Tiempo entre run fallido y siguiente run exitoso | Releases versionados (Parte 11) permiten redesplegar una versión anterior |
+
+**Niveles de referencia (State of DevOps Report):**
+
+| Nivel | Deployment Frequency | Lead Time | Change Failure Rate | Time to Restore |
+|---|---|---|---|---|
+| Elite | Varias veces al día | < 1 hora | 0–15% | < 1 hora |
+| Alto | 1/día – 1/semana | 1 día – 1 semana | 16–30% | < 1 día |
+| Medio | 1/semana – 1/mes | 1 semana – 1 mes | 16–30% | 1 día – 1 semana |
+| Bajo | < 1/mes | > 1 mes | > 30% | > 1 semana |
+
+
+### 13.1 Obtener los datos
+
+Cada métrica sale del historial que ya tiene tu repositorio. Con `gh` (o desde la interfaz):
+
+```bash
+REPO=<usuario>/<repo>
+
+# Despliegues a producción (Deployment Frequency)
+gh api "repos/$REPO/deployments?environment=github-pages" -q '.[] | "\(.created_at) \(.sha[0:7])"'
+
+# PRs: fecha de creación vs. merge (Lead Time)
+gh pr list --repo $REPO --state merged --json number,createdAt,mergedAt
+
+# Runs en main: cuáles fallaron y cuándo (Change Failure Rate, Time to Restore)
+gh run list --repo $REPO -w devops.yml -b main -e push --json conclusion,createdAt,headSha
+```
+
+Reglas para contar:
+- **Despliegue** = ejecución del job `deploy` en push a `main`. Un run rojo por tests o cobertura **no** es un despliegue fallido: nunca llegó a producción.
+- **Lead Time** = `mergedAt − createdAt` del PR. Usa la **mediana**, no el promedio, para que un PR olvidado no distorsione.
+- **Time to Restore** = desde el primer `deploy` fallido hasta el siguiente `deploy` exitoso.
+
+**Ejercicio:** Con el historial de tu repositorio al terminar el lab, calcula las cuatro métricas y ubica tu pipeline en un nivel. Justifica cuál de las cuatro cambiaría más si eliminas el gate de aprobación de 10.6, y en qué dirección.
+
+---
+
 ## Checklist de Éxito
 
 - [ ] Workflow se ejecuta correctamente en push y PR
@@ -1673,6 +1722,7 @@ Agrega la fila de cobertura al summary de 12.1:
 - [Job summaries](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#adding-a-job-summary)
 - [pytest-cov: reporting and fail-under](https://pytest-cov.readthedocs.io/en/latest/reporting.html)
 - [Coverage.py: excluding code](https://coverage.readthedocs.io/en/latest/excluding.html)
+- [DORA metrics](https://dora.dev/guides/dora-metrics-four-keys/)
 
 ---
 
