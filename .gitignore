@@ -20,6 +20,9 @@ laboratorio_docker_compose/tutorial-teoria-docker-compose-flask.md
 laboratorio_gitlab/*
 !laboratorio_gitlab/intro_gitlab.md
 !laboratorio_gitlab/laboratorio_gitlab.md
+!laboratorio_gitlab/guia_gitlab_ci_runner.md
 laboratorios_calificados/
 terminal/laboratorio_3_1.md
-terminal/laboratorio_3_2.md!laboratorio_gitlab/guia_gitlab_ci_runner.md
+terminal/laboratorio_3_2.md
+# Material de evaluación (no publicar)
+examenes/
