@@ -7,6 +7,7 @@ laboratorio_IaC/*
 !laboratorio_IaC/laboratorio_terraform_gitlab.md
 !laboratorio_IaC/laboratorio_terraform_unittest.md
 !laboratorio_IaC/laboratorio_terraform_bitbucket.md
+!laboratorio_IaC/laboratorio_cloudformation_bitbucket.md
 laboratorio_azure_devops/
 laboratorio_azure_pipelines/*
 !laboratorio_azure_pipelines/guia_introduccion.md
