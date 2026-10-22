@@ -31,13 +31,19 @@
 
 ```
 juice-shop-devsecops/
+├── .gitlab-ci.yml            # pipeline (Parte 4)
+├── .pre-commit-config.yaml   # hooks locales (Parte 5)
 ├── Dockerfile
 ├── package.json
-├── src/
-├── k8s/
-├── terraform/
-└── reports/
+├── package-lock.json         # generado en 2.1, necesario para Trivy
+├── routes/  lib/  models/    # backend Express/TypeScript (código que analiza Semgrep y SonarQube)
+├── frontend/                 # Angular
+├── kubernetes/  iac/         # manifiestos y Terraform (no se usan en este lab)
+├── reports/                  # salidas de los escaneos (local, no se commitea)
+└── sbom/                     # SBOM CycloneDX (local, no se commitea)
 ```
+
+> `reports/` y `sbom/` contienen los secretos que las herramientas detectan: los hooks de la Parte 5 bloquearán cualquier intento de commitearlos. Van en `.gitignore`; en GitLab se obtienen como **artefactos del pipeline** (Build → Artifacts).
 
 ---
 
@@ -56,7 +62,7 @@ mkdir -p reports
 El repo se clona desde GitHub, pero el pipeline corre en GitLab. Redirige el origin:
 
 ```bash
-git remote set-url origin git@gitlab.com:<tu-usuario>/juice-shop-devsecops-test-20261.git
+git remote set-url origin git@gitlab.com:<tu-usuario>/juice-shop-devsecops-20262.git
 
 # Verificar
 git remote -v
@@ -562,15 +568,17 @@ pre-commit-check:
 
 ## 📘 Entregables
 
-1. Carpeta del proyecto `juice-shop-devsecops` con reportes (`reports/*.json`)  
+1. Captura de la carpeta `reports/` local con los JSON generados (no se commitea: los hooks lo bloquean; en GitLab están como artefactos)  
 2. Capturas de pantalla de:
    - Ejecuciones Docker (Trivy, Semgrep, Gitleaks, TruffleHog)
    - Panel Problems de VS Code con hallazgos de SonarQube for IDE (antes y después de corregir)
+   - Commit con secreto de prueba bloqueado por pre-commit (Parte 5.5)
    - Reportes generados en GitLab CI  
 3. Documento de reflexión:  
    - ¿Qué diferencias observas entre los análisis manuales y automatizados?  
    - ¿Qué ventajas aporta integrar SCA y Secret Scanning al pipeline DevSecOps?  
    - ¿Qué hallazgos coinciden entre Semgrep y SonarQube for IDE y cuáles no? ¿Por qué?  
+   - ¿Qué otras herramientas agregarías al pipeline de este laboratorio?  
 
 ---
 
