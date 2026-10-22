@@ -262,14 +262,17 @@ Al guardar, el subrayado y la entrada en **Problems** desaparecen. Revierte el c
 
 En la Activity Bar, icono de SonarQube → panel **SonarQube Setup** → sección **Rules** (colapsada al final del panel, encima de *Help And Feedback*). Despliégala, filtra por lenguaje (`typescript`) y activa o desactiva reglas con el toggle. También desde el `settings.json` de usuario (`Ctrl+Shift+P` / `Cmd+Shift+P` → **Preferences: Open User Settings (JSON)**; no confundir con `defaultSettings.json`, que es solo lectura):
 
+La clave `sonarlint.rules` **no existe hasta que la agregas**: es tu lista de excepciones al perfil por defecto. Ejemplo (agrega el bloque al final del archivo, guarda y mira cómo cambia el panel Problems):
+
 ```json
-{
-  "sonarlint.rules": {
-    "javascript:S1481": { "level": "off" },
-    "typescript:S2077": { "level": "on" }
-  }
+"sonarlint.rules": {
+  "typescript:S1134": { "level": "off" },
+  "typescript:S2077": { "level": "on" }
 }
 ```
+
+- `S1134` off: desaparece el hallazgo "Track uses of FIXME" en `lib/insecurity.ts:19`
+- `S2077` on: activa la regla de SQL construido con strings; vuelve a abrir `routes/login.ts` y revisa si aparece en la línea 34
 
 > **Nota:** los **Security Hotspots** se muestran solo en **Connected Mode**. En SonarQube Community Build 26.x varias reglas antes clasificadas como hotspot (MD5 `S4790`, `Math.random()` `S2245`, HTTP en claro `S5332`, clave privada `S6706`) ya se reportan como **vulnerabilidades** y sí aparecen en modo standalone.
 
