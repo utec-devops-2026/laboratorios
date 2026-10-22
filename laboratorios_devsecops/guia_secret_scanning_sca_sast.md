@@ -207,18 +207,24 @@ Si VS Code no encuentra Node.js, indícalo en `settings.json`:
 
 ### 3.6.2 Analizar archivos vulnerables
 
-SonarQube for IDE analiza **solo los archivos abiertos**, al abrirlos o guardarlos. Abre estos archivos y observa los subrayados:
+SonarQube for IDE analiza **solo los archivos abiertos**, al abrirlos o guardarlos. No necesita token ni cuenta: el modo standalone funciona sin configuración. Abre estos archivos y observa los subrayados:
 
 ```
-routes/login.ts        # SQL construido por concatenación (línea ~34)
-lib/insecurity.ts      # clave privada RSA en el código, hash MD5, secret aleatorio
+lib/insecurity.ts      # clave privada RSA (línea 23), MD5 (43), password fijo (44), Math.random (55), http:// (129-132)
+routes/captcha.ts      # Math.random() para generar captchas
+routes/b2bOrder.ts     # ejecución dinámica de código (vm)
+server.ts              # directory listing en rutas estáticas
 ```
+
+> **`routes/login.ts` no muestra hallazgos de SonarQube** aunque tiene la inyección SQL: la regla `S2077` no está activa en el perfil por defecto de TypeScript. Esa vulnerabilidad la detecta Semgrep (`express-sequelize-injection`, Parte 3.5). Buen ejemplo de por qué se combinan herramientas.
 
 Los hallazgos aparecen en:
 
 - Editor: subrayado ondulado sobre la línea afectada
-- Panel **Problems** (`Ctrl+Shift+M` / `Cmd+Shift+M`), con prefijo `sonarqube(<regla>)`
+- Panel **Problems** (`Ctrl+Shift+M` / `Cmd+Shift+M`), con prefijo `sonarqube(<regla>)`. Filtra escribiendo `sonarqube` en la caja del panel
 - Vista **SONARQUBE** en la Activity Bar (icono de SonarQube)
+
+> **Si no ves nada en `lib/insecurity.ts`:** los errores rojos de `import ... from 'express'` son de TypeScript por no tener `node_modules`, no de SonarQube. Revisa **Output** (`Ctrl+Shift+U` / `Cmd+Shift+U`) → selector **SonarQube for IDE**: si dice que no encuentra Node.js, configura `sonarlint.pathToNodeExecutable` (3.6.1) y recarga la ventana (**Developer: Reload Window**).
 
 ### 3.6.3 Entender y corregir un hallazgo
 
@@ -226,7 +232,16 @@ Los hallazgos aparecen en:
 2. Lee la descripción: **por qué** es un riesgo, ejemplo *noncompliant* y *compliant*
 3. Corrige el código y guarda: el hallazgo desaparece del panel **Problems**
 
-Ejemplo para `routes/login.ts`: reemplazar la interpolación de `req.body.email` en el `SELECT` por una consulta parametrizada de Sequelize (`replacements`). Revierte el cambio después de validar si no deseas modificar la app.
+Ejemplo para `lib/insecurity.ts` línea 43 (regla `S4790`, MD5 es un hash débil):
+
+```ts
+// antes
+export const hash = (data: string) => crypto.createHash('md5').update(data).digest('hex')
+// después
+export const hash = (data: string) => crypto.createHash('sha256').update(data).digest('hex')
+```
+
+Al guardar, el subrayado y la entrada en **Problems** desaparecen. Revierte el cambio después de la captura (`git checkout HEAD -- lib/insecurity.ts`): Juice Shop usa MD5 a propósito para sus retos.
 
 ### 3.6.4 Personalizar reglas
 
