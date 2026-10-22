@@ -1,6 +1,6 @@
 # Laboratorio: Análisis de Dependencias y Secret Scanning con Trivy, Semgrep, Gitleaks y TruffleHog
 
-**Duración estimada:** 120–150 min  
+**Duración estimada:** 150–180 min  
 **Nivel:** Intermedio / Avanzado  
 **Contexto:** Este laboratorio amplía el flujo DevSecOps aplicado al proyecto `juice-shop-devsecops`. Aquí aprenderás a ejecutar análisis manuales de vulnerabilidades y exposición de secretos utilizando contenedores Docker con herramientas SCA (Software Composition Analysis) y secret scanning, para luego automatizar todo el proceso en GitLab CI/CD.
 
@@ -10,6 +10,7 @@
 
 - Detectar vulnerabilidades en dependencias con **Trivy** (SCA)
 - Identificar vulnerabilidades en código fuente con **Semgrep** (SAST)
+- Validar SAST en el IDE con **SonarQube for IDE** (shift-left)
 - Detectar secretos y credenciales expuestas con **Gitleaks** y **TruffleHog**
 - Prevenir secretos en commits futuros con **pre-commit hooks**
 - Automatizar todos los escaneos en **GitLab CI/CD**
@@ -19,6 +20,7 @@
 ## 🧩 Requisitos previos
 
 ✅ Docker Desktop instalado  
+✅ VS Code y Node.js ≥ 20 instalados (para SonarQube for IDE)  
 ✅ GitLab y acceso al proyecto `juice-shop-devsecops`  
 ✅ Conocimientos básicos de Node.js y dependencias  
 ✅ Conectividad a Internet para descargar imágenes Docker  
@@ -85,10 +87,18 @@ docker-compose up -d
 docker run --rm -v $(pwd):/src aquasec/trivy:latest fs /src   --format json --output /src/reports/trivy-report.json   --severity HIGH,CRITICAL
 ```
 
+> **⚠️ Sin lockfile no hay SCA.** Trivy resuelve dependencias npm a partir de `package-lock.json`. El repo no lo incluye (`Number of language-specific files num=0` → 0 vulnerabilidades). Genéralo sin instalar `node_modules`:
+>
+> ```bash
+> npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+> ```
+>
+> Vuelve a ejecutar Trivy: deberías ver ~100+ vulnerabilidades HIGH/CRITICAL en `package-lock.json`.
+
 ### 2.2 Reporte en formato tabla
 
 ```bash
-docker run --rm -v $(pwd):/src aquasec/trivy:latest fs /src \D
+docker run --rm -v $(pwd):/src aquasec/trivy:latest fs /src \
   --format table --severity HIGH,CRITICAL
 ```
 
@@ -133,7 +143,7 @@ docker run --rm -it -v $(pwd):/src trufflesecurity/trufflehog:latest filesystem 
 
 ## Parte 3.5: Análisis SAST con Semgrep
 
-### 3.3 Ejecutar Semgrep desde Docker
+### 3.5.1 Ejecutar Semgrep desde Docker
 
 ```bash
 docker run --rm -v $(pwd):/src semgrep/semgrep semgrep \
@@ -144,7 +154,7 @@ docker run --rm -v $(pwd):/src semgrep/semgrep semgrep \
   /src
 ```
 
-### 3.4 Reporte en formato texto (consola)
+### 3.5.2 Reporte en formato texto (consola)
 
 ```bash
 docker run --rm -v $(pwd):/src semgrep/semgrep semgrep \
@@ -153,7 +163,7 @@ docker run --rm -v $(pwd):/src semgrep/semgrep semgrep \
   /src
 ```
 
-### 3.5 Escaneo con regla específica
+### 3.5.3 Escaneo con regla específica
 
 ```bash
 docker run --rm -v $(pwd):/src semgrep/semgrep semgrep \
@@ -164,6 +174,138 @@ docker run --rm -v $(pwd):/src semgrep/semgrep semgrep \
 ```
 
 > **¿Qué analiza Semgrep?** Busca patrones inseguros en código fuente: inyecciones SQL, XSS, uso de funciones peligrosas, credenciales hardcodeadas y malas prácticas específicas por lenguaje. A diferencia de las herramientas de dependencias (SCA), Semgrep analiza el **código que tú escribes** (SAST).
+
+---
+
+## Parte 3.6: SAST en el IDE con SonarQube for IDE
+
+Semgrep y el pipeline detectan problemas **después** de escribir el código. SonarQube for IDE (antes SonarLint) los muestra **mientras escribes**, directamente en VS Code: es la forma más temprana de "shift-left" para SAST.
+
+> **Requisitos:** VS Code y Node.js ≥ 20.12 (o ≥ 22.11) instalados en tu máquina. La extensión descarga su propio JRE automáticamente.
+
+### 3.6.1 Instalar la extensión
+
+1. Abre VS Code → **Extensions** (`Ctrl+Shift+X` / `Cmd+Shift+X`)
+2. Busca **SonarQube for IDE** (ID: `SonarSource.sonarlint-vscode`) e instálala
+3. Abre la carpeta `juice-shop-devsecops` en VS Code
+
+Si VS Code no encuentra Node.js, indícalo en `settings.json`:
+
+```json
+{
+  "sonarlint.pathToNodeExecutable": "/ruta/a/node"
+}
+```
+
+> Obtén la ruta con `which node` (macOS/Linux) o `where node` (Windows).
+
+### 3.6.2 Analizar archivos vulnerables
+
+SonarQube for IDE analiza **solo los archivos abiertos**, al abrirlos o guardarlos. Abre estos archivos y observa los subrayados:
+
+```
+routes/login.ts        # SQL construido por concatenación (línea ~34)
+lib/insecurity.ts      # clave privada RSA en el código, hash MD5, secret aleatorio
+```
+
+Los hallazgos aparecen en:
+
+- Editor: subrayado ondulado sobre la línea afectada
+- Panel **Problems** (`Ctrl+Shift+M` / `Cmd+Shift+M`), con prefijo `sonarqube(<regla>)`
+- Vista **SONARQUBE** en la Activity Bar (icono de SonarQube)
+
+### 3.6.3 Entender y corregir un hallazgo
+
+1. Pasa el cursor sobre una línea subrayada → **Quick Fix** (`Ctrl+.` / `Cmd+.`) → **Show rule description**
+2. Lee la descripción: **por qué** es un riesgo, ejemplo *noncompliant* y *compliant*
+3. Corrige el código y guarda: el hallazgo desaparece del panel **Problems**
+
+Ejemplo para `routes/login.ts`: reemplazar la interpolación de `req.body.email` en el `SELECT` por una consulta parametrizada de Sequelize (`replacements`). Revierte el cambio después de validar si no deseas modificar la app.
+
+### 3.6.4 Personalizar reglas
+
+En la Activity Bar → **SONARQUBE SETUP** → **RULES** puedes activar o desactivar reglas por lenguaje. También desde `settings.json`:
+
+```json
+{
+  "sonarlint.rules": {
+    "javascript:S1481": { "level": "off" },
+    "typescript:S2077": { "level": "on" }
+  }
+}
+```
+
+> **Nota:** los **Security Hotspots** se muestran solo en **Connected Mode**. En SonarQube Community Build 26.x varias reglas antes clasificadas como hotspot (MD5 `S4790`, `Math.random()` `S2245`, HTTP en claro `S5332`, clave privada `S6706`) ya se reportan como **vulnerabilidades** y sí aparecen en modo standalone.
+
+### 3.6.5 (Opcional) Connected Mode con SonarQube Community Build
+
+Para aplicar el perfil de calidad del servidor, sincronizar issues y escanear **toda** la carpeta, conecta el IDE a un SonarQube local en Docker.
+
+**a) Levantar SonarQube**
+
+```bash
+docker run -d --name sonarqube -p 9000:9000 sonarqube:community
+```
+
+Espera ~1–2 min hasta que `curl -s http://localhost:9000/api/system/status` devuelva `"status":"UP"`. Abre http://localhost:9000, entra con `admin` / `admin` y define la nueva contraseña cuando lo pida.
+
+**b) Crear el proyecto**
+
+1. **Projects → Create Project → Create a local project**
+2. Project display name y Project key: `juice-shop-devsecops` → **Next**
+3. Deja **Use the global setting** → **Create project**
+
+**c) Generar el token (User Token)**
+
+1. Clic en tu avatar (arriba a la derecha) → **My Account**
+2. Pestaña **Security** → sección **Generate Tokens**
+3. Name: `vscode-lab` · Type: **User Token** · Expires in: `30 days` → **Generate**
+4. Copia el token **ahora**: SonarQube lo muestra una sola vez. Guárdalo fuera del repo (por ejemplo en `~/.sonar-token`), nunca en un archivo commiteado.
+
+> **¿Por qué User Token?** Es el único tipo que acepta Connected Mode. Los *Project Analysis Token* y *Global Analysis Token* sirven para `sonar-scanner`, pero VS Code los rechaza.
+
+Alternativa por terminal (misma cuenta `admin` y la contraseña que definiste):
+
+```bash
+curl -s -u admin:<tu-password> -X POST \
+  "http://localhost:9000/api/user_tokens/generate?name=vscode-lab&type=USER_TOKEN" \
+  | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])"
+```
+
+**d) Primer análisis con sonar-scanner (Docker)**
+
+```bash
+docker run --rm \
+  -e SONAR_HOST_URL="http://host.docker.internal:9000" \
+  -e SONAR_TOKEN="<tu-token>" \
+  -v "$(pwd):/usr/src" \
+  sonarsource/sonar-scanner-cli \
+  -Dsonar.projectKey=juice-shop-devsecops \
+  -Dsonar.sources=routes,lib,models,server.ts,app.ts \
+  -Dsonar.exclusions="**/node_modules/**,frontend/**,build/**"
+```
+
+> En Linux reemplaza `host.docker.internal` por `172.17.0.1` o usa `--network host`.
+
+**e) Vincular VS Code**
+
+1. Activity Bar → **SONARQUBE SETUP** → **CONNECTED MODE** → **Add SonarQube Server Connection**
+2. Server URL `http://localhost:9000`, pega el token, nombre `local` → **Save Connection**
+3. **Add Project Binding** (icono +) → selecciona la carpeta y el proyecto `juice-shop-devsecops`
+
+**f) Escanear toda la carpeta**
+
+Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) → **SonarQube: Scan for Hotspots in Folder**. Los hotspots aparecen agrupados por archivo en la vista **SONARQUBE**; clic derecho → **Show Rule Description** o **Review on Server**.
+
+> En SonarQube Community Build 26.x este escaneo puede devolver **0 hotspots**: las reglas MD5, `Math.random()`, HTTP en claro o clave privada ya se clasifican como vulnerabilidades. Para ver el análisis completo del proyecto usa la web: http://localhost:9000/project/issues?id=juice-shop-devsecops. Al abrir `lib/insecurity.ts` en VS Code, Connected Mode sincroniza esas mismas issues con el servidor.
+
+**g) Limpiar**
+
+```bash
+docker rm -f sonarqube
+```
+
+> **Semgrep vs SonarQube for IDE:** Semgrep corre en CLI/CI con reglas de comunidad (`p/security-audit`) y es ideal para automatizar. SonarQube for IDE da feedback inmediato al desarrollador con explicación de cada regla. Ambos son SAST; se complementan, no se reemplazan.
 
 ---
 
@@ -326,6 +468,7 @@ repos:
       - id: detect-private-key
       - id: check-added-large-files
         args: ['--maxkb=500']
+        exclude: ^package-lock\.json$   # el lockfile pesa ~1 MB
 ```
 
 ### 5.3 Instalar hooks en el repositorio
@@ -348,23 +491,27 @@ pre-commit run --all-files
 pre-commit run gitleaks --all-files
 ```
 
+> **Resultado esperado:** `detect-private-key` **falla** en 4 archivos (`lib/insecurity.ts`, `build/lib/insecurity.js`, `iac/gcp/credentials.json`, `docs/guia-secrets.md`). Es correcto: el repo trae esas claves a propósito. El hook de TruffleHog compila Go la primera vez (~5 min); puedes saltarlo con `SKIP=trufflehog pre-commit run --all-files`.
+
 ### 5.5 Simular detección de secreto
 
 Agrega un secreto falso para validar que el hook bloquea el commit:
 
 ```bash
-echo 'AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY' >> src/config.js
-git add src/config.js
+echo 'AWS_ACCESS_KEY_ID=AKIAQ3ZX7YT2LMNOPQ4R' >> config/default.yml
+git add config/default.yml
 git commit -m "test: secret scan hook"
-# ❌ El commit debe ser BLOQUEADO por gitleaks
+# ❌ El commit debe ser BLOQUEADO por gitleaks (regla aws-access-token)
 ```
+
+> **Nota:** los valores de documentación de AWS (`AKIAIOSFODNN7EXAMPLE`, `wJalrXUtnFEMI/...EXAMPLEKEY`) **no** disparan gitleaks porque contienen la palabra `EXAMPLE`, incluida en su allowlist. Usa un valor con formato real pero inventado, como el de arriba, o un token `ghp_` de 36 caracteres.
 
 Elimina el secreto y verifica que el commit pasa:
 
 ```bash
-# Revertir el cambio
-git checkout src/config.js
-git commit -m "chore: verify pre-commit hooks work"
+# Revertir el cambio (HEAD -- porque el archivo ya está en stage)
+git checkout HEAD -- config/default.yml
+git commit --allow-empty -m "chore: verify pre-commit hooks work"
 # ✅ Commit debe pasar
 ```
 
@@ -387,8 +534,8 @@ pre-commit-check:
     - pip install pre-commit
     - apt-get update -y && apt-get install -y git --no-install-recommends
   script:
-    - pre-commit run --all-files
-  allow_failure: false
+    - SKIP=trufflehog pre-commit run --all-files
+  allow_failure: true   # el repo contiene claves privadas a propósito; detect-private-key siempre falla
   rules:
     - when: always
 ```
@@ -401,7 +548,9 @@ pre-commit-check:
 
 - [ ] Trivy, Semgrep, Gitleaks y TruffleHog ejecutan correctamente desde Docker  
 - [ ] Reportes generados en `/reports` y `/sbom`  
-- [ ] Se aplicaron correcciones en dependencias vulnerables  
+- [ ] SonarQube for IDE instalado y hallazgos visibles en `routes/login.ts` y `lib/insecurity.ts`  
+- [ ] Al menos un hallazgo de SonarQube corregido y verificado en el panel Problems  
+- [ ] Se documentó el plan de corrección de dependencias (paquete, versión instalada, versión con fix). Juice Shop es vulnerable a propósito: aplicar los `npm install` en una rama aparte, no en `master`  
 - [ ] Pipeline de GitLab CI ejecuta los escaneos automáticamente  
 - [ ] Artefactos JSON/TXT visibles en GitLab  
 - [ ] `.pre-commit-config.yaml` creado con hooks de Gitleaks y TruffleHog  
@@ -416,10 +565,12 @@ pre-commit-check:
 1. Carpeta del proyecto `juice-shop-devsecops` con reportes (`reports/*.json`)  
 2. Capturas de pantalla de:
    - Ejecuciones Docker (Trivy, Semgrep, Gitleaks, TruffleHog)
+   - Panel Problems de VS Code con hallazgos de SonarQube for IDE (antes y después de corregir)
    - Reportes generados en GitLab CI  
 3. Documento de reflexión:  
    - ¿Qué diferencias observas entre los análisis manuales y automatizados?  
    - ¿Qué ventajas aporta integrar SCA y Secret Scanning al pipeline DevSecOps?  
+   - ¿Qué hallazgos coinciden entre Semgrep y SonarQube for IDE y cuáles no? ¿Por qué?  
 
 ---
 
