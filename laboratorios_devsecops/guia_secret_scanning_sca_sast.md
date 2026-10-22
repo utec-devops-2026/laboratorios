@@ -267,12 +267,16 @@ La clave `sonarlint.rules` **no existe hasta que la agregas**: es tu lista de ex
 ```json
 "sonarlint.rules": {
   "typescript:S1134": { "level": "off" },
-  "typescript:S2077": { "level": "on" }
+  "typescript:S5332": { "level": "off" }
 }
 ```
 
-- `S1134` off: desaparece el hallazgo "Track uses of FIXME" en `lib/insecurity.ts:19`
-- `S2077` on: activa la regla de SQL construido con strings; vuelve a abrir `routes/login.ts` y revisa si aparece en la línea 34
+- `S1134` off: desaparecen los hallazgos "Track uses of FIXME" (`lib/insecurity.ts:19` y `routes/login.ts`); el contador de la pestaña SonarQube baja en 2
+- `S5332` off: desaparecen los 3 "Using http protocol is insecure" de `lib/insecurity.ts:129-132`
+
+Quita el bloque y guarda para restaurar el perfil por defecto.
+
+> Activar `typescript:S2077` (SQL construido con strings) **no** hace que `routes/login.ts:34` aparezca: el analizador embebido no reconoce `sequelize.query` como punto de inyección. Esa vulnerabilidad sigue siendo territorio de Semgrep.
 
 > **Nota:** los **Security Hotspots** se muestran solo en **Connected Mode**. En SonarQube Community Build 26.x varias reglas antes clasificadas como hotspot (MD5 `S4790`, `Math.random()` `S2245`, HTTP en claro `S5332`, clave privada `S6706`) ya se reportan como **vulnerabilidades** y sí aparecen en modo standalone.
 
