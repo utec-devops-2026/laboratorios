@@ -233,7 +233,10 @@ Los hallazgos aparecen en:
 
 - Editor: subrayado ondulado sobre la línea afectada
 - Panel **Problems** (`Ctrl+Shift+M` / `Cmd+Shift+M`), con prefijo `sonarqube(<regla>)`. Filtra escribiendo `sonarqube` en la caja del panel
+- Pestaña **SonarQube** en el mismo panel inferior (junto a Problems, Output, Terminal): lista todos los hallazgos agrupados por archivo
 - Vista **SONARQUBE** en la Activity Bar (icono de SonarQube)
+
+> Si la pestaña SonarQube los agrupa bajo **Older Findings** y no aparecen en Problems, tienes activo *focus on new code* (`sonarlint.focusOnNewCode`). Juice Shop no tiene commits recientes, así que todo cuenta como "viejo". Desactívalo con **SonarQube: Disable focus on new code** en la Command Palette.
 
 > **Si no ves nada en `lib/insecurity.ts`:** los errores rojos de `import ... from 'express'` son de TypeScript por no tener `node_modules`, no de SonarQube. Revisa **Output** (`Ctrl+Shift+U` / `Cmd+Shift+U`) → selector **SonarQube for IDE**: si dice que no encuentra Node.js, configura `sonarlint.pathToNodeExecutable` (3.6.1) y recarga la ventana (**Developer: Reload Window**).
 
