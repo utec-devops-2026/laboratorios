@@ -228,7 +228,7 @@ routes/b2bOrder.ts     # ejecución dinámica de código (vm)
 server.ts              # directory listing en rutas estáticas
 ```
 
-> **`routes/login.ts` no muestra hallazgos de SonarQube** aunque tiene la inyección SQL: la regla `S2077` no está activa en el perfil por defecto de TypeScript. Esa vulnerabilidad la detecta Semgrep (`express-sequelize-injection`, Parte 3.5). Buen ejemplo de por qué se combinan herramientas.
+> **`routes/login.ts` no muestra la inyección SQL en SonarQube** aunque la regla `S2077` ("SQL queries should not be dynamically formatted") está activa por defecto: su implementación solo reconoce `query()` de los clientes `mysql` y `pg`, no `sequelize.query()`, y además no sigue variables (solo detecta el string construido dentro de la llamada). Esa vulnerabilidad la detecta Semgrep (`express-sequelize-injection`, Parte 3.5). Buen ejemplo de por qué se combinan herramientas.
 
 Los hallazgos aparecen en:
 
@@ -276,7 +276,7 @@ La clave `sonarlint.rules` **no existe hasta que la agregas**: es tu lista de ex
 
 Quita el bloque y guarda para restaurar el perfil por defecto.
 
-> Activar `typescript:S2077` (SQL construido con strings) **no** hace que `routes/login.ts:34` aparezca: el analizador embebido no reconoce `sequelize.query` como punto de inyección. Esa vulnerabilidad sigue siendo territorio de Semgrep.
+> Poner `typescript:S2077` en `on` **no** hace que `routes/login.ts:34` aparezca: la regla ya está activa por defecto, pero solo reconoce `query()` de `mysql` y `pg`, no de Sequelize. Esa vulnerabilidad sigue siendo territorio de Semgrep.
 
 > **Nota:** los **Security Hotspots** se muestran solo en **Connected Mode**. En SonarQube Community Build 26.x varias reglas antes clasificadas como hotspot (MD5 `S4790`, `Math.random()` `S2245`, HTTP en claro `S5332`, clave privada `S6706`) ya se reportan como **vulnerabilidades** y sí aparecen en modo standalone.
 
