@@ -208,11 +208,12 @@ Si VS Code no encuentra Node.js, indícalo en `settings.json`:
 > **Si usas nvm o fnm (muy común):** VS Code abierto desde el Dock o el menú no hereda el PATH de tu terminal, así que la extensión no encuentra Node y **no analiza nada** (solo verás errores `ts(...)` de TypeScript, ninguno `sonarqube(...)`). Usa la ruta real de la versión, no la del shell:
 >
 > ```bash
-> # nvm
-> ls ~/.nvm/versions/node/           # ej. v22.11.0 → ~/.nvm/versions/node/v22.11.0/bin/node
-> # fnm
-> ls ~/.local/share/fnm/node-versions/   # ej. v22.22.2 → ~/.local/share/fnm/node-versions/v22.22.2/installation/bin/node
+> readlink -f "$(which node)"
+> # nvm → /Users/<tu-usuario>/.nvm/versions/node/v22.11.0/bin/node
+> # fnm → /Users/<tu-usuario>/.local/share/fnm/node-versions/v22.22.2/installation/bin/node
 > ```
+>
+> `which node` solo devuelve un enlace temporal (ej. `fnm_multishells/...`) que desaparece al cerrar la terminal; `readlink -f` resuelve la ruta real.
 >
 > Pon esa ruta en `sonarlint.pathToNodeExecutable` y recarga VS Code (**Developer: Reload Window**).
 
