@@ -260,7 +260,7 @@ Al guardar, el subrayado y la entrada en **Problems** desaparecen. Revierte el c
 
 ### 3.6.4 Personalizar reglas
 
-En la Activity Bar → **SONARQUBE SETUP** → **RULES** puedes activar o desactivar reglas por lenguaje. También desde `settings.json`:
+En la Activity Bar, icono de SonarQube → panel **SonarQube Setup** → sección **Rules** (colapsada al final del panel, encima de *Help And Feedback*). Despliégala, filtra por lenguaje (`typescript`) y activa o desactiva reglas con el toggle. También desde el `settings.json` de usuario (`Ctrl+Shift+P` / `Cmd+Shift+P` → **Preferences: Open User Settings (JSON)**; no confundir con `defaultSettings.json`, que es solo lectura):
 
 ```json
 {
