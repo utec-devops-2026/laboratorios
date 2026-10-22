@@ -1343,16 +1343,21 @@ offline:
         curl -sf "http://localhost:3000/hello" > /dev/null && break
         sleep 1
       done
-    - 'curl -sf "http://localhost:3000/hello?name=UTEC" | tee hello.json'
+    - 'curl -sf "http://localhost:3000/hello?name=UTEC" -o hello.json'
+    - 'echo "RESPUESTA /hello?name=UTEC → $(cat hello.json)"'
     - 'grep -q "Hello, UTEC!" hello.json'
-    - 'curl -sf "http://localhost:3000/add?a=2&b=3" | tee add.json'
+    - 'curl -sf "http://localhost:3000/add?a=2&b=3" -o add.json'
+    - 'echo "RESPUESTA /add?a=2&b=3 → $(cat add.json)"'
     - 'grep -q "\"result\":5" add.json'
   after_script:
+    - echo "===== offline.log (servidor serverless-offline) ====="
     - cat offline.log
   artifacts:
     when: always
     paths:
-      - offline.log
+      - offline.log   # log del servidor: invocaciones (λ: api), duración
+      - hello.json    # respuesta JSON de /hello
+      - add.json      # respuesta JSON de /add
     expire_in: 1 day
 ```
 
@@ -1365,8 +1370,10 @@ Qué hace cada bloque:
 | `cache` con `.npm/` | `npm ci --cache .npm` guarda los tarballs; la segunda ejecución no vuelve a descargar `serverless` |
 | `npx serverless offline ... &` | Arranca el servidor en segundo plano dentro del contenedor |
 | bucle `for` | Espera hasta 60 s a que responda `/hello`; sin esto el `curl` siguiente corre antes de que el servidor esté listo |
-| `curl -sf` + `grep -q` | `-f` falla con HTTP ≥ 400; `grep` valida el contenido. Si algo no cuadra, el job falla |
-| `after_script` + `artifacts.when: always` | El log del servidor queda visible en el job y descargable aunque falle |
+| `curl -sf ... -o` + `echo RESPUESTA` + `grep -q` | `-f` falla con HTTP ≥ 400; el `echo` deja la respuesta JSON visible en el log del job; `grep` valida el contenido. Si algo no cuadra, el job falla |
+| `after_script` + `artifacts.when: always` | El log del servidor queda visible en el job y descargable aunque falle. `hello.json` y `add.json` también se guardan |
+
+> **Dónde ver cada cosa:** las líneas `RESPUESTA /hello ...` y `RESPUESTA /add ...` con el JSON están en el **log del job** (Build → Jobs → `offline`). El artifact `offline.log` es el log **del servidor** serverless-offline: muestra `Server ready`, cada `GET /hello (λ: api)` y su duración, pero no los cuerpos de respuesta. Esos están en `hello.json` y `add.json`.
 
 Y en `package`, incluye el handler en el ZIP:
 
@@ -1412,7 +1419,7 @@ El pipeline queda `whoami → test → offline → package → docs`. Como `offl
 - [ ] Sabes qué son los volúmenes `runner-...-cache-...` y por qué las imágenes aparecen "Unused" en Docker Desktop
 - [ ] `npx serverless offline` levanta la API en `http://localhost:3000` y `/hello` y `/add` responden
 - [ ] `tests/test_handler.py` pasa: el handler Mangum responde a un evento API Gateway v2
-- [ ] El job `offline` del pipeline pasa y su artifact `offline.log` muestra las invocaciones `(λ: api)`
+- [ ] El job `offline` del pipeline pasa: su log muestra `RESPUESTA /hello` y `RESPUESTA /add` con JSON, y el artifact `offline.log` muestra las invocaciones `(λ: api)`
 
 ---
 
@@ -1444,7 +1451,7 @@ El pipeline queda `whoami → test → offline → package → docs`. Como `offl
 5. **Serverless offline:**
    - Captura de la terminal con `npx serverless offline` mostrando `Server ready` y las rutas `/hello` y `/add`
    - Captura de la respuesta JSON en navegador o `curl` (`http://localhost:3000/hello?name=<tu-nombre>`)
-   - Captura del job `offline` en verde en el pipeline con la salida de los `curl`
+   - Captura del **log del job** `offline` en verde mostrando las líneas `RESPUESTA /hello ...` y `RESPUESTA /add ...` con el JSON (no el artifact `offline.log`, que es el log del servidor)
 
 ---
 
