@@ -89,30 +89,48 @@ docker-compose up -d
 
 ### 2.1 Ejecutar Trivy desde Docker
 
-```bash
-docker run --rm -v $(pwd):/src aquasec/trivy:latest fs /src   --format json --output /src/reports/trivy-report.json   --severity HIGH,CRITICAL
-```
-
-> **⚠️ Sin lockfile no hay SCA.** Trivy resuelve dependencias npm a partir de `package-lock.json`. El repo no lo incluye (`Number of language-specific files num=0` → 0 vulnerabilidades). Genéralo sin instalar `node_modules`:
+> **⚠️ Primero el lockfile, después Trivy.** Trivy resuelve dependencias npm a partir de `package-lock.json`. El repo no lo incluye (`Number of language-specific files num=0` → 0 vulnerabilidades). Si ejecutas Trivy antes de generarlo, el reporte solo contendrá hallazgos de tipo `secret` (Trivy habilita `vuln` + `secret` por defecto) y **no habrá SCA**. Genéralo sin instalar `node_modules`:
 >
 > ```bash
+> mkdir -p reports
 > npm install --package-lock-only --ignore-scripts --no-audit --no-fund
 > ```
->
-> Vuelve a ejecutar Trivy: deberías ver ~100+ vulnerabilidades HIGH/CRITICAL en `package-lock.json`.
+
+```bash
+docker run --rm \
+  -v $(pwd):/src \
+  -v trivy-cache:/root/.cache/trivy \
+  aquasec/trivy:latest fs /src \
+  --scanners vuln \
+  --severity HIGH,CRITICAL \
+  --format json --output /src/reports/trivy-report.json
+```
+
+- `--scanners vuln`: limita el análisis a dependencias (SCA). Sin esta flag Trivy también corre `secret`, y el reporte mezcla ambos; la detección de secretos la cubren Gitleaks/TruffleHog en la Parte 3.
+- `-v trivy-cache:/root/.cache/trivy`: volumen Docker que persiste la base de vulnerabilidades (~130 MB) entre ejecuciones.
+- Si la descarga de la DB falla (`BLOB_UNKNOWN`, `DENIED` o rate limit en `mirror.gcr.io` / `ghcr.io`), agrega `--db-repository public.ecr.aws/aquasecurity/trivy-db:2`.
+
+Verifica que el reporte sea SCA y no secret scanning:
+
+```bash
+python3 -c "import json;d=json.load(open('reports/trivy-report.json'));[print(r['Target'],r['Class'],r.get('Type'),len(r.get('Vulnerabilities') or [])) for r in d['Results']]"
+```
+
+Salida esperada: una fila `package-lock.json lang-pkgs npm <N>` con N ≈ 100+. Si ves filas `Class: secret` y 0 vulnerabilidades, el lockfile no existía al escanear.
 
 ### 2.2 Reporte en formato tabla
 
 ```bash
-docker run --rm -v $(pwd):/src aquasec/trivy:latest fs /src \
-  --format table --severity HIGH,CRITICAL
+docker run --rm -v $(pwd):/src -v trivy-cache:/root/.cache/trivy aquasec/trivy:latest fs /src \
+  --scanners vuln --format table --severity HIGH,CRITICAL
 ```
 
 ### 2.3 Generar SBOM (CycloneDX)
 
 ```bash
-docker run --rm -v $(pwd):/src aquasec/trivy:latest fs /src \
-  --format cyclonedx --output /src/sbom/sbom.json
+mkdir -p sbom
+docker run --rm -v $(pwd):/src -v trivy-cache:/root/.cache/trivy aquasec/trivy:latest fs /src \
+  --scanners vuln --format cyclonedx --output /src/sbom/sbom.json
 ```
 
 > **¿Qué es un SBOM?** Un *Software Bill of Materials* es un inventario exhaustivo de todos los componentes de software incluidos en un proyecto: librerías, versiones, licencias y dependencias transitivas.
@@ -428,10 +446,12 @@ trivy-scan:
     - mkdir -p $REPORTS_DIR
   script:
     - echo "🔍 Ejecutando Trivy (SCA)..."
-    - trivy filesystem . --format json --severity HIGH,CRITICAL --output $REPORTS_DIR/trivy-report.json || true
-    - trivy filesystem . --format template --template '@contrib/gitlab.tpl' --output $REPORTS_DIR/gl-dependency-scanning-report.json --severity HIGH,CRITICAL || true
-    - trivy filesystem . --format table --output $REPORTS_DIR/trivy-table.txt --severity HIGH,CRITICAL || true
-    - trivy filesystem . --format cyclonedx --output $REPORTS_DIR/sbom.json || true
+    # package-lock.json debe estar versionado en el repo: sin lockfile Trivy no detecta dependencias npm
+    - test -f package-lock.json || { echo "❌ Falta package-lock.json, no hay SCA"; exit 1; }
+    - trivy filesystem . --scanners vuln --format json --severity HIGH,CRITICAL --output $REPORTS_DIR/trivy-report.json || true
+    - trivy filesystem . --scanners vuln --format template --template '@contrib/gitlab.tpl' --output $REPORTS_DIR/gl-dependency-scanning-report.json --severity HIGH,CRITICAL || true
+    - trivy filesystem . --scanners vuln --format table --output $REPORTS_DIR/trivy-table.txt --severity HIGH,CRITICAL || true
+    - trivy filesystem . --scanners vuln --format cyclonedx --output $REPORTS_DIR/sbom.json || true
   artifacts:
     paths:
       - $REPORTS_DIR/
@@ -495,14 +515,15 @@ repos:
       - id: gitleaks
 
   # TruffleHog: verifica secretos con entropía y patrones
-  - repo: https://github.com/trufflesecurity/trufflehog
-    rev: v3.88.28
+  # Se usa la imagen Docker oficial: el hook upstream (language: golang) compila
+  # TruffleHog desde fuente y requiere Go + varios GB de disco.
+  - repo: local
     hooks:
       - id: trufflehog
         name: TruffleHog Secret Scanner
-        entry: trufflehog filesystem --results=verified,unknown
-        language: golang
-        pass_filenames: false
+        language: docker_image
+        entry: trufflesecurity/trufflehog:latest filesystem --results=verified,unknown --no-update --fail
+        # pass_filenames (default true): escanea solo los archivos staged, no todo el repo
 
   # Detecta archivos con posibles credenciales por nombre
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -534,7 +555,7 @@ pre-commit run --all-files
 pre-commit run gitleaks --all-files
 ```
 
-> **Resultado esperado:** `detect-private-key` **falla** en 4 archivos (`lib/insecurity.ts`, `build/lib/insecurity.js`, `iac/gcp/credentials.json`, `docs/guia-secrets.md`). Es correcto: el repo trae esas claves a propósito. El hook de TruffleHog compila Go la primera vez (~5 min); puedes saltarlo con `SKIP=trufflehog pre-commit run --all-files`.
+> **Resultado esperado:** `detect-private-key` **falla** en 4 archivos (`lib/insecurity.ts`, `build/lib/insecurity.js`, `iac/gcp/credentials.json`, `docs/guia-secrets.md`). Es correcto: el repo trae esas claves a propósito. El hook de TruffleHog corre con la imagen Docker (`docker pull trufflesecurity/trufflehog:latest` la primera vez) y usa `--fail` para bloquear el commit si encuentra secretos; sin esa flag TruffleHog siempre devuelve exit 0. Puedes saltarlo con `SKIP=trufflehog pre-commit run --all-files`.
 
 ### 5.5 Simular detección de secreto
 
