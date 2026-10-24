@@ -119,22 +119,23 @@ Abre el navegador en: `http://localhost:8080`
 
 DefectDojo organiza los hallazgos en una jerarquía: **Product Type → Product → Engagement → Test → Findings**.
 
-### 2.1 Crear un Product Type
+> **Nombres en la UI (DefectDojo 3.x):** desde la versión 3.0 la interfaz renombró **Product Type → Organization** y **Product → Asset**. La API REST conserva los nombres antiguos (`/api/v2/product_types/`, `/api/v2/products/`). Ambos conceptos aparecen bajo el menú lateral **Assets**. Si tu instancia muestra `Products` / `Product Types`, tiene desactivada la variable `DD_ENABLE_V3_ORGANIZATION_ASSET_RELABEL`; los pasos son los mismos.
 
-1. Ve a **Product Types** en el menú lateral.
-2. Clic en **+ Add Product Type**.
-3. Ingresa:
+### 2.1 Crear un Product Type (Organization)
+
+1. Ve a **Assets → Add Organization** en el menú lateral (en versiones 2.x: **Product Types → + Add Product Type**).
+2. Ingresa:
    - **Name:** `Aplicaciones Web`
    - **Description:** `Portafolio de aplicaciones web internas`
-4. Clic en **Submit**.
+3. Clic en **Submit**.
 
-### 2.2 Crear un Product
+### 2.2 Crear un Product (Asset)
 
-1. Ve a **Products** → **+ Add Product**.
+1. Ve a **Assets → Add Asset** (en versiones 2.x: **Products → + Add Product**).
 2. Ingresa:
    - **Name:** `Juice Shop`
    - **Description:** `Aplicación de e-commerce vulnerable para laboratorio`
-   - **Product Type:** `Aplicaciones Web`
+   - **Organization / Product Type:** `Aplicaciones Web`
    - **Business Criticality:** `High`
    - **Platform:** `Web`
    - **Lifecycle:** `Production`
@@ -144,13 +145,15 @@ DefectDojo organiza los hallazgos en una jerarquía: **Product Type → Product 
 
 Un Engagement agrupa todas las pruebas de seguridad de un sprint o release.
 
-1. Dentro del producto `Juice Shop`, clic en **+ Add Engagement**.
-2. Ingresa:
+> El menú lateral **Engagements** solo lista; no tiene botón de creación. El engagement se crea desde el Asset.
+
+1. Ve a **Assets → All Assets → Juice Shop**.
+2. En la barra de pestañas del asset, abre **Engagements → Add New CI/CD Engagement** (en versiones 2.x: **+ Add Engagement**).
+3. Ingresa:
    - **Name:** `Sprint 1 - Análisis de seguridad`
-   - **Engagement Type:** `CI/CD`
    - **Status:** `In Progress`
    - **Target Start / Target End:** fechas del sprint actual
-3. Clic en **Submit**.
+4. Clic en **Submit**.
 
 ---
 
@@ -452,7 +455,7 @@ Las dos primeras líneas (que generan los reportes) se dejan con `|| true` para 
 
 ### 5.1 Ver resumen del producto
 
-1. Ve a **Products → Juice Shop**.
+1. Ve a **Assets → All Assets → Juice Shop**.
 2. Observa el panel con:
    - Total de findings por severidad
    - Tendencia en el tiempo
@@ -460,8 +463,7 @@ Las dos primeras líneas (que generan los reportes) se dejan con `|| true` para 
 
 ### 5.2 Analizar deuda técnica
 
-1. Ve a **Metrics → Product Metrics**.
-2. Selecciona `Juice Shop`.
+1. Ve a **Assets → All Assets → Juice Shop** y abre la pestaña **Metrics**.
 3. Revisa:
    - **Open findings** por severidad acumulados
    - **Closed/Accepted findings** por sprint
@@ -667,7 +669,7 @@ Luego importa:
 1. Ve a **Findings** en el menú lateral.
 2. Aplica filtros por:
    - **Severity:** `Critical`, `High`
-   - **Product:** `Juice Shop`
+   - **Asset / Product:** `Juice Shop`
 3. Explora un hallazgo para ver:
    - Descripción del vulnerabilidad
    - Archivo y línea afectados
