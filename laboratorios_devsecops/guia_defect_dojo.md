@@ -219,6 +219,8 @@ ngrok http 8080
 
 Usa esa URL como valor de `DEFECTDOJO_URL` en GitLab. La URL cambia cada vez que reinicias ngrok — actualiza la variable en cada sesión.
 
+> ⚠️ **Protegida = solo ramas protegidas.** Una variable marcada *Protected* no se entrega a pipelines de ramas que no estén en Settings → Repository → Protected branches (por defecto solo `master`/`main`). Si trabajas en ramas `feature/…`, el job `upload-defectdojo` fallará con `Variable requerida no definida: DEFECTDOJO_TOKEN`. Protege tus ramas de trabajo con el wildcard `feature/*` (Allowed to push and merge: Developers + Maintainers) o desmarca *Protected* en la variable.
+
 > El engagement se crea **automáticamente por pipeline** usando `CI_PIPELINE_ID` y `CI_COMMIT_REF_NAME`, lo que permite trazabilidad por build.
 
 ### 4.2 Script de importación reutilizable

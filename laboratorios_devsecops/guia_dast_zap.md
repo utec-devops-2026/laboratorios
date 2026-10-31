@@ -440,6 +440,8 @@ El `Dockerfile` de Juice Shop compila el frontend Angular: el build tarda 10–1
 
 ## Parte 7: Enviar el reporte a DefectDojo
 
+> Si trabajas en una rama `feature/…` y `DEFECTDOJO_TOKEN` es *Protected*, el job `upload-defectdojo` falla con `Variable requerida no definida: DEFECTDOJO_TOKEN`: protege la rama (wildcard `feature/*`) o desmarca *Protected* en la variable (ver nota en `guia_defect_dojo.md`, Parte 3).
+
 Requiere `guia_defect_dojo.md` (Partes 1–4): DefectDojo accesible por ngrok, variables `DEFECTDOJO_URL`, `DEFECTDOJO_TOKEN`, `DEFECTDOJO_PRODUCT_ID` y el script `scripts/upload_to_defectdojo.sh` en el repo.
 
 ### 7.1 Agregar ZAP al job `upload-defectdojo`

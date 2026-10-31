@@ -640,6 +640,17 @@ pre-commit-check:
 
 ---
 
+## ➡️ Siguiente paso
+
+Todo lo que corrió en este laboratorio analiza el código **sin ejecutarlo**. La capa que falta es **DAST**: escanear la aplicación corriendo, como la ve un atacante.
+
+| Guía | Qué agrega | Duración |
+|---|---|---|
+| `ejemplo_intro_dast.md` | OWASP ZAP sobre una app Express de 20 líneas: pasivo vs activo, `rules.conf`, exit codes, corrección con `helmet` | 20–30 min |
+| `guia_dast_zap.md` | ZAP baseline + API scan sobre Juice Shop, stage `dynamic_scanning` en este mismo `.gitlab-ci.yml` (con `services`), gate y carga a DefectDojo | 120–150 min |
+
+---
+
 **Autor:** Wilson Julca Mejía  
 Curso: *DevSecOps y Seguridad en CI/CD – UTEC*  
 Universidad de Ingeniería y Tecnología (UTEC)  
